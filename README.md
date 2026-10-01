@@ -81,7 +81,7 @@ the gate then protects you, and the plugin behaves as it does on a local backend
 
 ### Installing from GitHub for a Docker-backed agent
 
-Expect two prompts that are not Docker problems but will stop a scripted install.
+Expect one block that is not a Docker problem but will stop a scripted install.
 Install into the profile that owns the Docker backend, pinned to a commit:
 
 ```bash
@@ -96,19 +96,14 @@ hermes -p <profile> plugins install petertaras/hermes-rtk-rewrite-with-docker-su
    that run `git` and `rtk` on a temporary repository, and README prose that mentions
    `os.environ`. Read the findings yourself, then override with `--force`. Always pin
    `--ref` to an exact commit, so what you reviewed is what you install.
-2. **A dependency consent prompt appears even though there are no dependencies.**
-   Hermes treats any `pyproject.toml` as declaring Python dependencies and asks
-   "Prepare these with Hermes through PM now? [y/N]". In a non-interactive shell
-   (an agent's terminal tool, CI, cron) the install fails with
-   `Reinstall declined: dependency install skipped (non-interactive)`, and
-   `--no-deps` cannot replace an already active plugin. Run the install from a real
-   terminal and answer `y`, or give the command a pseudo-terminal, for example:
-
-   ```bash
-   printf 'y\ny\n' | script -qec "hermes -p <profile> plugins install ... --force --enable" /dev/null
-   ```
-
-   The adapter installs nothing into the Hermes environment (`dependencies = []`).
+2. **The plugin deliberately ships no `pyproject.toml`.** Hermes treats any
+   `pyproject.toml` as a declaration of Python dependencies. That triggers an
+   interactive consent prompt, which fails in a non-interactive shell
+   (`Reinstall declined: dependency install skipped (non-interactive)`). A buildable
+   package name also becomes a workspace member of Hermes' shared environment, so a
+   second profile installing the same plugin fails with
+   `Two workspace members are both named ...`. The adapter is pure standard library
+   and needs neither, so installing it into several profiles works unattended.
 
 After installing: set the profile's `terminal.docker_image` to an image that contains
 `rtk`, add the `backends` opt-in, and remove the profile's existing container so the
