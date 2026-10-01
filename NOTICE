@@ -1,0 +1,26 @@
+rtk-rewrite Hermes adapter
+=========================
+
+This repository contains a Hermes Agent plugin adapter for the RTK command
+rewriter (https://github.com/rtk-ai/rtk).
+
+The adapter code in ``__init__.py`` is derived from the RTK project's own
+Hermes hook, ``hooks/hermes/rtk-rewrite/__init__.py``, which is distributed
+under the Apache License, Version 2.0. Copyright and authorship of the
+original hook belong to the RTK Contributors (see
+https://github.com/rtk-ai/rtk/issues/3797 for provenance).
+
+RTK itself is a separate project by the RTK Contributors, licensed under the
+Apache License, Version 2.0. This adapter does not claim authorship of RTK or
+of RTK's command-compression logic; all rewrite logic lives in the RTK binary.
+
+This adapter is a thin bridge: it invokes the external ``rtk rewrite`` command
+and returns the result to Hermes through the ``pre_tool_call`` modify
+contract. It contains no rewrite logic of its own.
+
+The rewritten command is returned to Hermes as an explicit ``modify``
+directive instead of being assigned to the hook's ``args`` dict, and the
+adapter adds a terminal-backend gate for Docker and remote targets. See
+README.md.
+
+This product includes software developed by the RTK Contributors.

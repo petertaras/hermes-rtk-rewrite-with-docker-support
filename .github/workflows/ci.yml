@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.11"
+      - name: Run unit tests
+        run: |
+          PYTHON=$(command -v python)
+          env -u RTK_BIN PATH=/usr/bin:/bin "$PYTHON" tests/run_tests.py adapter
+
+  integration:
+    name: Integration tests (real pinned RTK)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.11"
+      - name: Stage verified RTK v0.50.0 binary
+        run: |
+          mkdir -p .staging
+          curl -fsSL -o .staging/rtk.tar.gz \
+            "https://github.com/rtk-ai/rtk/releases/download/v0.50.0/rtk-x86_64-unknown-linux-musl.tar.gz"
+          echo "bc2b8902b0d9c796c82ef45f16ae2307e17757afeca5ee156235a3dc7bda5f89  .staging/rtk.tar.gz" | sha256sum -c -
+          tar -xzf .staging/rtk.tar.gz -C .staging
+          .staging/rtk --version
+      - name: Run integration tests
+        run: python tests/run_tests.py integration
+      - name: Checkout pinned Hermes
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          repository: NousResearch/hermes-agent
+          ref: a8a549ebb43a61b2b400b992e956b7304b8fe41a
+          path: .staging/hermes
+          persist-credentials: false
+      - name: Install pinned Hermes dependencies
+        run: |
+          python -m pip install uv==0.12.5
+          uv sync --frozen --no-dev --project .staging/hermes --python 3.11
+      - name: Run real Hermes dispatch tests (no skips permitted)
+        env:
+          HERMES_TREE: ${{ github.workspace }}/.staging/hermes
+          HERMES_HOME: ${{ runner.temp }}/rtk-dispatch-home
+        run: |
+          mkdir -p "$HERMES_HOME"
+          .staging/hermes/.venv/bin/python tests/run_tests.py dispatch
