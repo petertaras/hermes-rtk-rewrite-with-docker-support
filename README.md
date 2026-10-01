@@ -13,10 +13,6 @@ invokes the binary and hands the result back to Hermes through the
 - **Tested Hermes commit:** `a8a549ebb43a61b2b400b992e956b7304b8fe41a` (Hermes 0.21.5)
 - **License:** Apache-2.0 (see `LICENSE` and `NOTICE`)
 
-**Validation candidate:** keep this repository private until the plugin has
-been verified on a different Hermes instance. CI and isolated test homes on
-the development machine do not satisfy that release gate.
-
 ---
 
 ## Docker and remote backends: the problem and our fix
@@ -89,7 +85,7 @@ Expect two prompts that are not Docker problems but will stop a scripted install
 Install into the profile that owns the Docker backend, pinned to a commit:
 
 ```bash
-hermes -p <profile> plugins install PeterTaras/hermes-rtk-rewrite-with-docker-support \
+hermes -p <profile> plugins install petertaras/hermes-rtk-rewrite-with-docker-support \
   --ref <40-char-commit-sha> --force --enable
 ```
 

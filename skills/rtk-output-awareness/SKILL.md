@@ -2,7 +2,7 @@
 name: rtk-output-awareness
 description: "Use when RTK may filter terminal output."
 version: 0.1.0
-author: Peter Taras (PeterTaras), Hermes Agent
+author: Peter Taras (petertaras), Hermes Agent
 license: Apache-2.0
 platforms: [linux, macos, windows]
 metadata:
