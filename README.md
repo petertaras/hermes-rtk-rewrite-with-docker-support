@@ -83,6 +83,43 @@ command is running.
 running container keeps its old image). Without the image, leave the opt-in off:
 the gate then protects you, and the plugin behaves as it does on a local backend.
 
+### Installing from GitHub for a Docker-backed agent
+
+Expect two prompts that are not Docker problems but will stop a scripted install.
+Install into the profile that owns the Docker backend, pinned to a commit:
+
+```bash
+hermes -p <profile> plugins install PeterTaras/hermes-rtk-rewrite-with-docker-support \
+  --ref <40-char-commit-sha> --force --enable
+```
+
+1. **The plugin scanner returns a `caution` verdict and blocks the install**
+   ("community source"). The findings are pattern matches on this repository's own
+   files: the checksum check in CI (`echo "<sha256>  file" | sha256sum -c`), the
+   intentional `subprocess.run([rtk, "rewrite", ...])` in `__init__.py`, test fixtures
+   that run `git` and `rtk` on a temporary repository, and README prose that mentions
+   `os.environ`. Read the findings yourself, then override with `--force`. Always pin
+   `--ref` to an exact commit, so what you reviewed is what you install.
+2. **A dependency consent prompt appears even though there are no dependencies.**
+   Hermes treats any `pyproject.toml` as declaring Python dependencies and asks
+   "Prepare these with Hermes through PM now? [y/N]". In a non-interactive shell
+   (an agent's terminal tool, CI, cron) the install fails with
+   `Reinstall declined: dependency install skipped (non-interactive)`, and
+   `--no-deps` cannot replace an already active plugin. Run the install from a real
+   terminal and answer `y`, or give the command a pseudo-terminal, for example:
+
+   ```bash
+   printf 'y\ny\n' | script -qec "hermes -p <profile> plugins install ... --force --enable" /dev/null
+   ```
+
+   The adapter installs nothing into the Hermes environment (`dependencies = []`).
+
+After installing: set the profile's `terminal.docker_image` to an image that contains
+`rtk`, add the `backends` opt-in, and remove the profile's existing container so the
+next session starts from the new image. Verify with a plain command that RTK rewrites,
+such as `git status`: a rewritten run prints RTK's compact format. Compound commands
+(`cd x && git status | head`) are not rewritten by RTK, so they prove nothing.
+
 ### How it was verified
 
 - Unit tests cover the gate, the setting parser and backend detection, including
