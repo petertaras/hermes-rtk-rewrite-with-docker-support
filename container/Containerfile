@@ -1,6 +1,6 @@
 # Add the RTK binary to an existing Hermes terminal-backend image.
 #
-# The rtk-rewrite plugin rewrites a command on the Hermes host, but the
+# The rtk-rewrite-docker plugin rewrites a command on the Hermes host, but the
 # rewritten command (for example `rtk read a.txt`) runs INSIDE the container.
 # If the image has no `rtk`, the command fails with "rtk: command not found".
 # This layer adds the pinned, checksum-verified static binary.

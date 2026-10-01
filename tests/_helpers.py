@@ -1,4 +1,4 @@
-"""Shared helpers for the rtk-rewrite test suite (stdlib only, no pytest)."""
+"""Shared helpers for the rtk-rewrite-docker test suite (stdlib only, no pytest)."""
 
 import importlib.util
 import types

@@ -22,7 +22,7 @@ ADAPTER_VERSION = "0.1.0"
 # Hermes host, but the rewritten command (``rtk read a.txt``) executes on the
 # terminal backend, so ``rtk`` must exist THERE. Only the host is assumed to have
 # it. A container or remote profile opts in per profile with
-# ``plugins.entries.rtk-rewrite.settings.backends`` once its image carries RTK.
+# ``plugins.entries.rtk-rewrite-docker.settings.backends`` once its image carries RTK.
 DEFAULT_ALLOWED_BACKENDS = frozenset({"local"})
 BACKENDS_SETTING = "backends"
 

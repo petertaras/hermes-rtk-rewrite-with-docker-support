@@ -22,23 +22,23 @@ from _helpers import REPO_ROOT, STAGED_RTK
 
 
 def _make_home(base: Path, name: str) -> Path:
-    """Create an isolated HERMES_HOME with the rtk-rewrite plugin installed+enabled."""
+    """Create an isolated HERMES_HOME with the rtk-rewrite-docker plugin installed+enabled."""
     home = base / name
-    plugin_dir = home / "plugins" / "rtk-rewrite"
+    plugin_dir = home / "plugins" / "rtk-rewrite-docker"
     plugin_dir.mkdir(parents=True)
     shutil.copy2(REPO_ROOT / "plugin.yaml", plugin_dir / "plugin.yaml")
     shutil.copy2(REPO_ROOT / "__init__.py", plugin_dir / "__init__.py")
-    (home / "config.yaml").write_text("plugins:\n  enabled:\n    - rtk-rewrite\n")
+    (home / "config.yaml").write_text("plugins:\n  enabled:\n    - rtk-rewrite-docker\n")
     return home
 
 
 def _make_docker_home(base: Path, name: str, opt_in: bool) -> Path:
     """A profile whose terminal backend is docker, optionally opted in to rewrites."""
     home = _make_home(base, name)
-    plugins = "plugins:\n  enabled:\n    - rtk-rewrite\n"
+    plugins = "plugins:\n  enabled:\n    - rtk-rewrite-docker\n"
     if opt_in:
         plugins += (
-            "  entries:\n    rtk-rewrite:\n      settings:\n"
+            "  entries:\n    rtk-rewrite-docker:\n      settings:\n"
             "        backends: [local, docker]\n"
         )
     (home / "config.yaml").write_text(plugins + "terminal:\n  backend: docker\n")

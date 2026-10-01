@@ -1,4 +1,4 @@
-rtk-rewrite Hermes adapter
+rtk-rewrite-docker Hermes adapter
 =========================
 
 This repository contains a Hermes Agent plugin adapter for the RTK command

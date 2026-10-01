@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the rtk-rewrite test suite (stdlib unittest, no external deps).
+"""Run the rtk-rewrite-docker test suite (stdlib unittest, no external deps).
 
 Usage:
     python tests/run_tests.py            # all tests

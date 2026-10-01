@@ -1,4 +1,4 @@
-"""Unit tests for the rtk-rewrite adapter (subprocess mocked).
+"""Unit tests for the rtk-rewrite-docker adapter (subprocess mocked).
 
 These cover every branch of ``_pre_tool_call`` without needing a real RTK
 binary: unsupported tools, empty args, existing rtk commands, rewrite return

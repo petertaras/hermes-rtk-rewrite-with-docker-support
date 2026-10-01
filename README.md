@@ -45,7 +45,7 @@ The fix has three parts.
    # <profile>/config.yaml
    plugins:
      entries:
-       rtk-rewrite:
+       rtk-rewrite-docker:
          settings:
            backends: [local, docker]   # or "all"
    ```
@@ -92,9 +92,9 @@ Two things can stop an install. Neither one is a Docker problem.
 This method is for the `local` backend. The plugin is two files: `plugin.yaml` and `__init__.py`.
 
 ```bash
-mkdir -p ~/.hermes/plugins/rtk-rewrite
-cp plugin.yaml __init__.py ~/.hermes/plugins/rtk-rewrite/
-hermes plugins enable rtk-rewrite
+mkdir -p ~/.hermes/plugins/rtk-rewrite-docker
+cp plugin.yaml __init__.py ~/.hermes/plugins/rtk-rewrite-docker/
+hermes plugins enable rtk-rewrite-docker
 hermes plugins list
 ```
 
@@ -120,7 +120,7 @@ To use a specific program for the rewrite on the host, set `RTK_BIN` to its abso
 3. Opt in the Docker backend:
 
    ```bash
-   hermes -p <profile> config set plugins.entries.rtk-rewrite.settings.backends '["local","docker"]'
+   hermes -p <profile> config set plugins.entries.rtk-rewrite-docker.settings.backends '["local","docker"]'
    ```
 
 4. Remove the existing container of the profile. A running container keeps its old image.
@@ -134,7 +134,7 @@ If the image has no `rtk`, do not opt in. Then the plugin behaves as it does for
 
 | Setting | Values | Default | Meaning |
 | --- | --- | --- | --- |
-| `plugins.entries.rtk-rewrite.settings.backends` | A list of backend names, or `all` | `[local]` | The backends where the plugin rewrites commands |
+| `plugins.entries.rtk-rewrite-docker.settings.backends` | A list of backend names, or `all` | `[local]` | The backends where the plugin rewrites commands |
 
 ---
 
@@ -222,11 +222,11 @@ The pointer helps the agent find the skill. It does not guarantee that the agent
 
 To stop rewriting, use one of these methods:
 
-1. Run `hermes plugins disable rtk-rewrite`. The hook stops.
-2. To stop one Docker profile only, remove `docker` from its `plugins.entries.rtk-rewrite.settings.backends` list. You can also delete the block.
+1. Run `hermes plugins disable rtk-rewrite-docker`. The hook stops.
+2. To stop one Docker profile only, remove `docker` from its `plugins.entries.rtk-rewrite-docker.settings.backends` list. You can also delete the block.
 3. Remove `RTK_BIN` and remove `rtk` from `PATH` on the host. The plugin then fails open, and every command runs unchanged.
 
-To remove the plugin, disable it. Then delete the directory `plugins/rtk-rewrite` in the Hermes home of the profile.
+To remove the plugin, disable it. Then delete the directory `plugins/rtk-rewrite-docker` in the Hermes home of the profile.
 
 ---
 

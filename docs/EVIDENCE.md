@@ -1,4 +1,4 @@
-# Evidence — rtk-rewrite Hermes adapter
+# Evidence — rtk-rewrite-docker Hermes adapter
 
 Stable marker: RTK-HERMES-ADAPTER-20260926
 
@@ -121,7 +121,7 @@ instance.** A clean CI checkout or same-host isolated homes are not that gate.
 
 ## Rollback recipe
 
-1. `hermes plugins disable rtk-rewrite` — stops the hook firing.
+1. `hermes plugins disable rtk-rewrite-docker` — stops the hook firing.
 2. Or remove the plugin directory from the Hermes home.
 3. Or unset `RTK_BIN` and remove `rtk` from `PATH` — the adapter then fails
    open and every command runs unrewritten.
@@ -137,7 +137,7 @@ In a Docker-backed profile, 52 of 839 recorded terminal results contained
 `rtk: command not found` (31 exit 127, 16 exit 0 with a failed segment, 5 other).
 
 Change: `__init__.py` rewrites only when the active backend is allowed (default
-`local`; per-profile `plugins.entries.rtk-rewrite.settings.backends`), and skips
+`local`; per-profile `plugins.entries.rtk-rewrite-docker.settings.backends`), and skips
 when the backend is unknown. Backend is resolved through
 `tools.terminal_tool._get_env_config()` with `tools.terminal_scope.terminal_env()`
 as fallback, not `os.environ`. `container/Containerfile` adds RTK v0.50.0

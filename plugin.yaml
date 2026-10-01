@@ -1,4 +1,4 @@
-name: rtk-rewrite
+name: rtk-rewrite-docker
 version: "0.1.0"
 description: Rewrite Hermes terminal commands through RTK, with Docker and remote backend support.
 author: RTK Contributors
@@ -12,7 +12,7 @@ provides_hooks:
 # which must be present on PATH (or pointed to via RTK_BIN) on the Hermes host.
 # The adapter fails open to the original command when the binary is missing.
 python_dependencies: []
-# Per-profile setting: plugins.entries.rtk-rewrite.settings.backends
+# Per-profile setting: plugins.entries.rtk-rewrite-docker.settings.backends
 # Default is local only. Add docker (or ssh, ...) only when the execution
 # environment ALSO contains `rtk` (see container/Containerfile).
 config_schema:

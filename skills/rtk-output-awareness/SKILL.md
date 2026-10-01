@@ -19,7 +19,7 @@ This skill provides a per-command raw-output path; it does not disable plugins.
 
 ## When to Use
 
-- Running terminal commands with the rtk-rewrite plugin enabled.
+- Running terminal commands with the rtk-rewrite-docker plugin enabled.
 - Reviewing complete diffs, security findings, detailed errors or exact output.
 - Investigating suspiciously short output, missing fields or omitted context.
 - Do not use this as permission to bypass tool approvals or execution isolation.
