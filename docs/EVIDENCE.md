@@ -1,163 +1,167 @@
-# Evidence — rtk-rewrite-docker Hermes adapter
+# Evidence: RTK 1.1.0 and Hermes 0.23.0
 
-Stable marker: RTK-HERMES-ADAPTER-20260926
+## Assessment
 
-This file records how the adapter was verified. It contains no secrets and no
-local host paths; paths are relative to this repository.
+The Docker backend gate is still needed.
 
-## Pinned RTK
+- Latest stable RTK: `v1.1.0`, published 2026-10-25.
+- Latest stable Hermes: `v0.23.0`, published 2026-11-05.
+- RTK still ships `hooks/hermes/rtk-rewrite/__init__.py` without a backend gate.
+- That hook runs `rtk rewrite` on the host and changes `args["command"]` for every terminal backend.
+- Hermes v0.23.0 has no built-in RTK integration. A search of its Python source found only a scanner test fixture.
+- Real Hermes dispatch still accepts RTK rewrites for Docker profiles. It does not check whether the container has RTK.
 
-- Release tag: `v0.50.0`
-- Release commit (target_commitish): `1d87b8e719ce0a50c223cd93ca64dd16921f9aec`
-- Release URL: https://github.com/rtk-ai/rtk/releases/tag/v0.50.0
-- Asset (x86_64 Linux): `rtk-x86_64-unknown-linux-musl.tar.gz`
-- Asset SHA-256: `bc2b8902b0d9c796c82ef45f16ae2307e17757afeca5ee156235a3dc7bda5f89`
-  (matches the `checksums.txt` published with the release)
-- Provenance: https://github.com/rtk-ai/rtk/issues/3797 ; Apache-2.0
+This adapter adds the backend opt-in. An unconfigured Docker profile keeps its original commands. An opted-in profile needs RTK inside its container.
 
-The verified binary is staged (gitignored) at `.staging/rtk` and reports
-`rtk 0.50.0`. It is **not** committed and does **not** replace any installed
-binary.
+Sources:
 
-## Tested Hermes
+- https://github.com/rtk-ai/rtk/releases/tag/v1.1.0
+- https://github.com/rtk-ai/rtk/blob/753a3b0e939f2e4490fc24e3a1984010f40a103c/hooks/hermes/rtk-rewrite/__init__.py
+- https://github.com/NousResearch/hermes-agent/releases/tag/v0.23.0
+- https://hermes-agent.nousresearch.com/docs/developer-guide/plugins
+- https://hermes-agent.nousresearch.com/docs/user-guide/features/hooks
 
-- Hermes version: 0.21.5
-- Tested Hermes commit: `a8a549ebb43a61b2b400b992e956b7304b8fe41a`
-- Contract verified in the Hermes tree (read-only): `pre_tool_call` `modify`
-  returns `{"action": "modify", "args": {...}}`; Hermes shallow-merges those
-  keys into the original tool args, so returning only `{"command": rewritten}`
-  preserves `cwd`/`workdir`, `timeout` and `background`.
-- Docs: https://hermes-agent.nousresearch.com/docs/user-guide/features/hooks and
-  https://hermes-agent.nousresearch.com/docs/developer-guide/plugins
+## Pins
 
-## Difference from the upstream hook
+| Component | Version or value |
+| --- | --- |
+| Adapter | `0.1.0`, runtime code unchanged |
+| RTK | `1.1.0` |
+| RTK commit | `753a3b0e939f2e4490fc24e3a1984010f40a103c` |
+| RTK asset | `rtk-x86_64-unknown-linux-musl.tar.gz` |
+| Asset SHA-256 | `9454ad1b9489daa57ab0a9f4ebe2faaf4dc82b8a0f26c9e5135151abd7c9378d` |
+| Hermes | `0.23.0` |
+| Hermes commit | `2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19` |
+| Python | `3.14.9` |
+| Container test base | `docker.io/library/node@sha256:18a6d90fd60542269850c80ca03b29b1d9b14d6b221ac7ee8e35b0d33ef904bd` |
+| Test image | `localhost/hermes-lab-rtk-test:1.1.0` |
+| Local container engine | Podman `5.7.0`, through the `docker` command |
 
-Upstream RTK v0.50.0 `hooks/hermes/rtk-rewrite/__init__.py` assigns
-`args["command"] = rewritten` and returns `None`. In the tested Hermes runtime
-that mutation does reach tool dispatch. This adapter returns an explicit `modify`
-directive instead, which Hermes shallow-merges into the original arguments. Both
-rewrote the tested command; the directive is an implementation choice. Upstream
-authorship is preserved (see NOTICE).
+The archive checksum matches the release `checksums.txt`. The staged executable reports `rtk 1.1.0`.
+The container layer and CI use the same archive checksum. No binary is committed.
 
-## Commands run (real results)
+The host installation reports Hermes `0.22.7`. These tests use the separate, pinned `0.23.0` source checkout and PM environment.
+The host installation and live profiles stay unchanged.
 
-### RTK rewrite behaviour (pinned v0.50.0, temp git fixture)
+## Setup
 
-| Input command | Rewritten output | Exit |
-| --- | --- | --- |
-| `cat a.txt` | `rtk read a.txt` | 3 |
-| `git status` | `rtk git status` | 3 |
-| `git log --oneline` | `rtk git log --oneline` | 3 |
-| `ls -la` | `rtk ls -la` | 3 |
-| `head -5 a.txt` | `rtk read a.txt --head-lines 5` | 3 |
-| `pwd` | (none) | 1 |
-| `echo hello` | (none) | 1 |
-| `true` | (none) | 1 |
-
-Observed exit codes: `3` = rewrite available on stdout; `1` = passthrough. The
-adapter's documented sets `{0,3}` accepted / `{1,2}` passthrough are retained;
-live testing on v0.50.0 observed `1` and `3`.
-
-### Test suite
-
-Run with the Hermes venv python (which provides `hermes_cli` for the dispatch
-tests):
-
-```
-python tests/run_tests.py all
-```
-
-- Unit tests mock `subprocess.run` and cover: unsupported tools, empty args,
-  existing rtk commands, rewrite return codes (0/3 accepted, 1/2 passthrough,
-  unexpected failure), missing binary, timeout, unexpected exception, the
-  modify-directive shape (only `command` returned), subprocess invocation shape
-  (no shell, bounded timeout), and `register()` gating.
-- Hermes dispatch tests install the plugin into throwaway `HERMES_HOME`s,
-  discover it through the real `hermes_cli.plugins` machinery, and dispatch
-  through `_dispatch_pre_tool_call_hooks`. They assert the real shallow merge
-  preserves `cwd`/`timeout`/`background`, passthrough stays untouched, and
-  profile switching A -> B -> A keeps working.
-- Integration tests run the real pinned RTK on a throwaway temp git fixture
-  (never a user repo) and confirm `cat` -> `rtk read`, `git status` ->
-  `rtk git status`, passthrough untouched, the rewritten command is executable
-  and produces the same content as the original, and the exit-code semantics
-  match the documented contract.
-
-## Known limits
-
-- The adapter adds a subprocess call (bounded at 2s) to every `terminal`
-  command; there is no guarantee of net speedup. Measure for your workload.
-- RTK rewrites change command output (filtering/summarising). Workflows that
-  depend on exact native output should disable the plugin or exclude the
-  command.
-- The adapter runs on the Hermes host. For Docker/SSH execution targets, the
-  rewritten command still invokes `rtk` on the target, so a compatible binary
-  must also be on the target's PATH. Missing target binaries cause execution
-  failure, not host-side fail-open. Verify both environments.
-- `RTK_BIN` is honoured as an override; when unset the adapter resolves `rtk`
-  from `PATH`. This selects only the host-side rewrite executable, not the
-  executable used by the resulting command on its execution target.
-
-## Clean-environment verification
-
-The suite is run with `RTK_BIN` unset, a restricted `PATH=/usr/bin:/bin`, an
-isolated `HOME`/`HERMES_HOME`, and the pinned Hermes checkout with its own frozen
-venv, so nothing on the development machine can mask a missing dependency:
+All paths below are relative to this repository. `.staging/` is ignored by Git.
+Use a managed scratch directory for `TMPDIR`. Do not use a live Hermes home.
 
 ```bash
-mkdir -p .staging/test-home .staging/tmp
-env -i PATH=/usr/bin:/bin HOME="$PWD/.staging/test-home" \
-  HERMES_HOME="$PWD/.staging/test-home/.hermes" TMPDIR="$PWD/.staging/tmp" \
-  HERMES_TREE="$PWD/.staging/hermes" \
-  .staging/hermes/.venv/bin/python tests/run_tests.py all
+mkdir -p .staging/test-home .staging/runtime
+export HERMES_HOME="$PWD/.staging/test-home"
+export HERMES_RUNTIME_DIR="$PWD/.staging/runtime"
+export RTK_TELEMETRY_DISABLED=1
+
+git clone --depth 1 --branch v0.23.0 \
+  https://github.com/NousResearch/hermes-agent.git .staging/hermes
+
+test "$(git -C .staging/hermes rev-parse HEAD)" = 2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19
+curl -fsSL -o .staging/rtk.tar.gz \
+  https://github.com/rtk-ai/rtk/releases/download/v1.1.0/rtk-x86_64-unknown-linux-musl.tar.gz
+printf '%s  %s\n' \
+  9454ad1b9489daa57ab0a9f4ebe2faaf4dc82b8a0f26c9e5135151abd7c9378d \
+  .staging/rtk.tar.gz | sha256sum -c -
+tar -xzf .staging/rtk.tar.gz -C .staging rtk
+.staging/rtk --version
+
+PYTHONPATH="$PWD/.staging/hermes" python3 -m pm.build_env \
+  --source "$PWD/.staging/hermes" --out "$PWD/.staging/hermes-venv14" \
+  --python "$(command -v python3)" --cache "$PWD/.staging/pm-cache"
+
+docker build -f container/Containerfile \
+  --build-arg BASE_IMAGE=docker.io/library/node@sha256:18a6d90fd60542269850c80ca03b29b1d9b14d6b221ac7ee8e35b0d33ef904bd \
+  -t localhost/hermes-lab-rtk-test:1.1.0 container/
 ```
 
-Skipped tests make the runner exit non-zero: a missing Hermes tree or RTK binary
-is reported as missing coverage, never as a pass. CI installs the pinned Hermes
-checkout using `uv==0.12.5` and `uv sync --frozen --no-dev --python 3.11`.
+The PM build uses Hermes's frozen lock. Python 3.11 cannot use this release lock, which requires Python 3.14 or later.
+No raw `pip` or `uv sync` changes to Hermes environments are needed.
 
-**Public release remains blocked pending verification on a different Hermes
-instance.** A clean CI checkout or same-host isolated homes are not that gate.
+The container build returned:
 
-## Rollback recipe
+```text
+/tmp/rtk.tar.gz: OK
+rtk 1.1.0
+```
 
-1. `hermes plugins disable rtk-rewrite-docker` — stops the hook firing.
-2. Or remove the plugin directory from the Hermes home.
-3. Or unset `RTK_BIN` and remove `rtk` from `PATH` — the adapter then fails
-   open and every command runs unrewritten.
+## Test results
 
-No live Hermes state is modified by installing or removing this plugin beyond
-the plugin registry entry.
+All four repository suites passed. No test was skipped.
 
+| Suite | Tests | Result |
+| --- | ---: | --- |
+| Adapter unit | 36 | OK |
+| Real Hermes dispatch | 9 | OK |
+| Real RTK integration | 10 | OK |
+| Real container and dispatch | 4 | OK |
+| Combined | 59 | OK |
 
-## Terminal backend gate and container layer
+The unit, dispatch and integration suites also passed with an empty environment and restricted `PATH=/usr/bin:/bin`:
 
-Cause: the rewritten command runs on the terminal backend, which may have no `rtk`.
-In a Docker-backed profile, 52 of 839 recorded terminal results contained
-`rtk: command not found` (31 exit 127, 16 exit 0 with a failed segment, 5 other).
+```bash
+for suite in adapter dispatch integration; do
+  env -i PATH=/usr/bin:/bin HOME="$PWD/.staging/test-home" \
+    HERMES_HOME="$PWD/.staging/test-home/.hermes" TMPDIR="$TMPDIR" \
+    HERMES_TREE="$PWD/.staging/hermes" RTK_TELEMETRY_DISABLED=1 \
+    .staging/hermes-venv14/bin/python tests/run_tests.py "$suite"
+done
+```
 
-Change: `__init__.py` rewrites only when the active backend is allowed (default
-`local`; per-profile `plugins.entries.rtk-rewrite-docker.settings.backends`), and skips
-when the backend is unknown. Backend is resolved through
-`tools.terminal_tool._get_env_config()` with `tools.terminal_scope.terminal_env()`
-as fallback, not `os.environ`. `container/Containerfile` adds RTK v0.50.0
-(SHA-256 `bc2b8902b0d9c796c82ef45f16ae2307e17757afeca5ee156235a3dc7bda5f89`).
+The combined suite retains the host container engine environment. The local `docker` command wraps Podman.
+A restricted PATH selected a different Docker client without access to its socket. That attempt failed, not skipped.
+The corrected run uses the working engine and an isolated Hermes home:
 
-Results:
+```bash
+env -u RTK_BIN HERMES_HOME="$PWD/.staging/test-home/.hermes" \
+  HERMES_TREE="$PWD/.staging/hermes" \
+  RTK_TEST_IMAGE=localhost/hermes-lab-rtk-test:1.1.0 RTK_TELEMETRY_DISABLED=1 \
+  .staging/hermes-venv14/bin/python tests/run_tests.py all
+```
 
-- Full suite, empty environment with restricted PATH: **50 tests, OK, no skips**
-  (36 unit, 9 dispatch, 5 integration).
-- Negative control: the 5 new dispatch tests against the adapter without the gate gave 3
-  failures (docker profile rewritten by default, ambient env deciding the backend,
-  local/docker alternation leaking).
-- Finding: dispatch tests must bind the profile's terminal policy
-  (`tools.terminal_scope.set_terminal_scope(build_profile_terminal_scope(home))`),
-  as the gateway does. Without it Hermes uses a process-wide bridge that latches on
-  the first home, and the tests give misleading results.
-- Image: built on a Playwright/Node 22 base; `rtk --version` = 0.50.0,
-  `rtk rewrite "cat a.txt"` = `rtk read a.txt` (exit 3), `rtk read a.txt` works,
-  telemetry reports "never asked / not enabled".
-- `hermes plugins validate`: passed, security scan safe.
+Coverage includes:
 
-Not yet verified: behaviour in a live multiplexed gateway, and on a different Hermes
-instance (the public-release gate still applies).
+- Default Docker passthrough, explicit opt-in and unknown-backend passthrough.
+- Per-call settings and alternating local/Docker profiles without policy leaks.
+- Real Hermes hook discovery and shallow merge of `command`, with other arguments preserved.
+- Current Hermes plugin-manager cleanup, instead of the removed `unload_plugins` call.
+- RTK version, rewrite codes, chained commands, pipeline consumers and redirection safety.
+- Raw `rtk bypass` output and unchanged bypass commands. `rtk proxy` is now a deprecated alias.
+- Image version and `RTK_TELEMETRY_DISABLED=1`.
+- Real Hermes dispatch to `rtk read`, followed by execution inside a network-disabled, disposable container.
+
+CI builds the pinned Hermes environment through PM, builds the container layer and runs `all`.
+The test runner returns non-zero for any skipped test. Missing prerequisites do not count as passing coverage.
+
+## Observed RTK behaviour
+
+| Input | Output | Exit |
+| --- | --- | ---: |
+| `cat a.txt` | `rtk read a.txt` | 3 |
+| `git status` | `rtk git status` | 3 |
+| `cat a.txt && git status` | `rtk read a.txt && rtk git status` | 3 |
+| `git status \| grep branch` | `git status \| rtk grep branch` | 3 |
+| `git status \| cat` | `rtk git status \| cat` | 3 |
+| `cat a.txt > copy.txt` | none | 1 |
+| `cat a.txt 2>&1` | `rtk read a.txt 2>&1` | 3 |
+| `pwd` | none | 1 |
+| `rtk bypass cat a.txt` | unchanged | 3 |
+
+The adapter still accepts `{0, 3}` and treats `{1, 2}` as passthrough.
+A code of 3 does not always mean the command changed. The adapter compares stdout with the original command.
+
+## Remaining release gate and limits
+
+Tom's separate `hermes-lab` profile test follows this branch handoff. These automated tests do not replace that gate.
+A live multiplexed gateway is not part of this test run.
+
+- The container layer supports x86_64 Linux only.
+- A profile must opt in only after its target contains a compatible RTK executable.
+- The adapter uses Hermes terminal internals. Repeat the dispatch suite after Hermes updates.
+- RTK filters output. Use `rtk bypass <command>` for native output, subject to normal tool limits and approvals.
+- The host-side rewrite has a two-second timeout and fails open. A missing target binary remains an execution error.
+
+## Rollback
+
+Disable `rtk-rewrite-docker` in the affected profile, or remove `docker` from its backend setting.
+The original terminal commands then run without RTK rewrites.

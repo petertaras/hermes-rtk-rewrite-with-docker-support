@@ -7,7 +7,7 @@
 #
 #   docker build -f container/Containerfile \
 #     --build-arg BASE_IMAGE=localhost/my-image:1.0 \
-#     -t localhost/my-image:1.0-rtk0.50.0 container/
+#     -t localhost/my-image:1.0-rtk1.1.0 container/
 #
 # x86_64 Linux only (the release asset is a static musl build). The base image
 # needs curl, tar and sha256sum. To change version, update BOTH build args and
@@ -15,8 +15,8 @@
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
 
-ARG RTK_VERSION=0.50.0
-ARG RTK_SHA256=bc2b8902b0d9c796c82ef45f16ae2307e17757afeca5ee156235a3dc7bda5f89
+ARG RTK_VERSION=1.1.0
+ARG RTK_SHA256=9454ad1b9489daa57ab0a9f4ebe2faaf4dc82b8a0f26c9e5135151abd7c9378d
 
 # RTK telemetry stays off inside the sandbox (RTK also defaults to "never asked").
 ENV RTK_TELEMETRY_DISABLED=1

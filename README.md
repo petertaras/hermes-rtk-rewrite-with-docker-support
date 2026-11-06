@@ -7,8 +7,8 @@ The plugin is a thin bridge. The RTK program does all the rewrite work (`rtk rew
 This version adds support for Docker and remote terminal backends. Without this support, a Docker agent can fail with `rtk: command not found`. The next section explains the problem.
 
 - **Plugin version:** 0.1.0 (RTK has its own version number)
-- **RTK version:** v0.50.0 (tag `v0.50.0`, commit `1d87b8e719ce0a50c223cd93ca64dd16921f9aec`)
-- **Tested Hermes commit:** `a8a549ebb43a61b2b400b992e956b7304b8fe41a` (Hermes 0.21.5)
+- **RTK version:** v1.1.0 (tag `v1.1.0`, commit `753a3b0e939f2e4490fc24e3a1984010f40a103c`)
+- **Tested Hermes commit:** `2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19` (Hermes 0.23.0)
 - **License:** Apache-2.0 (see `LICENSE` and `NOTICE`)
 
 ---
@@ -52,12 +52,12 @@ The fix has three parts.
 
    Hermes reads these settings on each call. A profile without this block stays `local` only.
 
-3. **A container layer with RTK.** The file [`container/Containerfile`](container/Containerfile) adds the RTK program to any base image. The program has a fixed version and a checksum (RTK v0.50.0, x86_64 Linux, static). To build an image:
+3. **A container layer with RTK.** The file [`container/Containerfile`](container/Containerfile) adds the RTK program to any base image. The program has a fixed version and a checksum (RTK v1.1.0, x86_64 Linux, static). To build an image:
 
    ```bash
    docker build -f container/Containerfile \
      --build-arg BASE_IMAGE=localhost/my-image:1.0 \
-     -t localhost/my-image:1.0-rtk0.50.0 container/
+     -t localhost/my-image:1.0-rtk1.1.0 container/
    ```
 
    RTK telemetry is off in this image (`RTK_TELEMETRY_DISABLED=1`).
@@ -150,16 +150,16 @@ RTK rewrites each command in a chain. A chain uses `&&`, `||`, or `;`.
 | `FOO=1 git status` | `FOO=1 rtk git status` |
 | `cat a.txt \| grep x` | `cat a.txt \| rtk grep x` |
 
-RTK does not rewrite these commands:
+RTK handles shell safety as follows:
 
-- A command whose output goes into a pipe, for example `git status | head -3`. RTK still rewrites the last command in the pipe, for example `git diff | rtk grep foo`.
+- RTK leaves stdout producers unchanged before semantic consumers, for example `git status | grep branch`. It can rewrite the last stage, for example `git diff | rtk grep foo`. With a display-only consumer, RTK can rewrite the producer too: `git status | cat` becomes `rtk git status | cat`.
 - A command whose output goes into a file, for example `git status > out.txt`.
 - A command that has a heredoc.
 - A command that has command substitution, for example `echo $(git status)`.
 - A command that RTK has no filter for, for example `echo hi`.
 - A command that starts with `rtk`. It stays as it is.
 
-The results come from `rtk rewrite` v0.50.0. A later RTK version can give different results.
+The results come from `rtk rewrite` v1.1.0. A later RTK version can give different results.
 
 ---
 
@@ -181,7 +181,7 @@ Hermes has its own fail-closed rule. A `pre_tool_call` callback that takes longe
 - `1` or `2`: RTK has no rewrite. The plugin returns `None`.
 - Any other code: the plugin logs a warning and returns `None`.
 
-These codes follow the RTK documentation. The file `docs/EVIDENCE.md` shows what RTK v0.50.0 returned in tests.
+These codes follow the RTK documentation. The file `docs/EVIDENCE.md` shows what RTK v1.1.0 returned in tests.
 
 ---
 
@@ -189,7 +189,7 @@ These codes follow the RTK documentation. The file `docs/EVIDENCE.md` shows what
 
 RTK replaces commands with its own `rtk read`, `rtk grep`, and similar commands. These commands filter and shorten the output. This is the goal of RTK, because short output uses fewer tokens. But the output can differ from the normal output of the command.
 
-For the full native output, use `rtk proxy <command>`, for example `rtk proxy git diff`. The plugin does not change a command that starts with `rtk proxy`. This command skips the RTK filter. It does not skip Hermes output limits or tool approvals. The plugin does not detect missing information. It does not retry commands.
+For the full native output, use `rtk bypass <command>`, for example `rtk bypass git diff`. The plugin does not change a command that starts with `rtk bypass`. This command skips the RTK filter. It does not skip Hermes output limits or tool approvals. The plugin does not detect missing information. It does not retry commands.
 
 ### Companion skill
 
@@ -203,7 +203,7 @@ The plugin install does not install this skill. Hermes does not share skills bet
 A skill loads on request. `AGENTS.md` gives standing instructions. For reliable discovery, you can add this pointer to the `AGENTS.md` of the profile:
 
 > RTK can filter terminal output. Before terminal work, load `rtk-output-awareness`.
-> If you need full output, use `rtk proxy <command>`.
+> If you need full output, use `rtk bypass <command>`.
 
 The pointer helps the agent find the skill. It does not guarantee that the agent detects every missing output. If you need complete output, ask for raw output from the start.
 
@@ -232,7 +232,7 @@ To remove the plugin, disable it. Then delete the directory `plugins/rtk-rewrite
 
 ## How this plugin differs from the upstream RTK hook
 
-RTK v0.50.0 has its own Hermes hook: `hooks/hermes/rtk-rewrite/__init__.py`. Its `pre_tool_call` callback does this:
+RTK v1.1.0 has its own Hermes hook: `hooks/hermes/rtk-rewrite/__init__.py`. Its `pre_tool_call` callback does this:
 
 ```python
 rewritten = result.stdout.strip()
@@ -253,9 +253,9 @@ The upstream authors keep their credit (see `NOTICE`). This plugin adds the back
 
 - **Unit tests** cover the gate, the setting parser, and the backend detection. They include "an unknown backend never rewrites" and "the settings are read on each call".
 - **Dispatch tests** use the real Hermes plugin code. Each profile gets its terminal settings the same way the gateway sets them. These tests include the multiplexer case: the process environment says `local`, and the profile says `docker`. They also alternate between `local` and `docker` profiles and check that nothing leaks.
-- **Negative control.** The new Docker tests fail (3 failures) against the plugin without the gate. So the tests detect the bug.
-- **Image test.** The image has `rtk 0.50.0`. The command `rtk rewrite "cat a.txt"` returns `rtk read a.txt` (exit code 3). `rtk read` works in the container.
-- **Live test.** Three Docker-backed profiles ran `git status` in their containers. All three returned RTK output. These tests used one-shot chat sessions. We did not test the multiplexed gateway live.
+- **Container tests.** The RTK v1.1.0 layer builds from a digest-pinned Node base. Real Hermes dispatch produces `rtk read`, and that command runs inside a network-disabled container. The tests also cover the default Docker gate, raw bypass, exit codes and the telemetry opt-out.
+- **Release tests.** All 59 tests pass with Hermes v0.23.0 and RTK v1.1.0. No tests are skipped.
+- **Profile test.** A separate `hermes-lab` test follows this branch handoff. Historical tests on older releases do not prove this release works.
 
 ---
 
@@ -273,12 +273,27 @@ For the integration tests, put the verified RTK binary in `.staging/rtk` (see `d
 python3 tests/run_tests.py integration
 ```
 
-The dispatch tests need the tested Hermes checkout and its dependencies:
+The dispatch tests need the pinned Hermes v0.23.0 checkout and Python 3.14. Build its frozen environment through PM:
 
 ```bash
-HERMES_TREE=/path/to/hermes /path/to/hermes/.venv/bin/python tests/run_tests.py dispatch
+PYTHONPATH="$PWD/.staging/hermes" python3 -m pm.build_env \
+  --source .staging/hermes --out .staging/hermes-venv14 \
+  --python "$(command -v python3)" --cache .staging/pm-cache
+HERMES_TREE="$PWD/.staging/hermes" .staging/hermes-venv14/bin/python tests/run_tests.py dispatch
 ```
 
-The test runner exits with an error when a test is skipped. A missing prerequisite counts as missing coverage. CI checks out the tested Hermes commit and installs its frozen dependencies. It does not replace skipped dispatch tests.
+The full suite also needs a built container image:
+
+```bash
+docker build -f container/Containerfile \
+  --build-arg BASE_IMAGE=docker.io/library/node@sha256:18a6d90fd60542269850c80ca03b29b1d9b14d6b221ac7ee8e35b0d33ef904bd \
+  -t localhost/hermes-lab-rtk-test:1.1.0 container/
+HERMES_TREE="$PWD/.staging/hermes" RTK_TEST_IMAGE=localhost/hermes-lab-rtk-test:1.1.0 \
+  .staging/hermes-venv14/bin/python tests/run_tests.py all
+```
+
+Use an isolated `HERMES_HOME` and `HERMES_RUNTIME_DIR` for development. Never build against a live profile.
+
+The test runner exits with an error when a test is skipped. A missing prerequisite counts as missing coverage. CI checks out the pinned Hermes commit, builds frozen dependencies through PM, builds the container layer and runs every suite.
 
 The file `docs/EVIDENCE.md` has the verified binary, the checksums, and the exact commands used to test this release.

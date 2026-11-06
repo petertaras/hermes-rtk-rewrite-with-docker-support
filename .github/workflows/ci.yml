@@ -18,48 +18,58 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
-          python-version: "3.11"
+          python-version: "3.14"
       - name: Run unit tests
         run: |
           PYTHON=$(command -v python)
           env -u RTK_BIN PATH=/usr/bin:/bin "$PYTHON" tests/run_tests.py adapter
 
   integration:
-    name: Integration tests (real pinned RTK)
+    name: All suites (RTK 1.1.0, Hermes 0.23.0, container)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+    env:
+      HERMES_HOME: ${{ runner.temp }}/rtk-test-home
+      HERMES_RUNTIME_DIR: ${{ runner.temp }}/rtk-test-runtime
+      RTK_TEST_IMAGE: localhost/hermes-lab-rtk-test:1.1.0
+      RTK_TELEMETRY_DISABLED: "1"
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Set up Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
-          python-version: "3.11"
-      - name: Stage verified RTK v0.50.0 binary
+          python-version: "3.14"
+      # Only fixed release URLs, checksums and refs enter these shell commands.
+      - name: Stage verified RTK v1.1.0 binary
         run: |
           mkdir -p .staging
           curl -fsSL -o .staging/rtk.tar.gz \
-            "https://github.com/rtk-ai/rtk/releases/download/v0.50.0/rtk-x86_64-unknown-linux-musl.tar.gz"
-          echo "bc2b8902b0d9c796c82ef45f16ae2307e17757afeca5ee156235a3dc7bda5f89  .staging/rtk.tar.gz" | sha256sum -c -
-          tar -xzf .staging/rtk.tar.gz -C .staging
+            "https://github.com/rtk-ai/rtk/releases/download/v1.1.0/rtk-x86_64-unknown-linux-musl.tar.gz"
+          echo "9454ad1b9489daa57ab0a9f4ebe2faaf4dc82b8a0f26c9e5135151abd7c9378d  .staging/rtk.tar.gz" | sha256sum -c -
+          tar -xzf .staging/rtk.tar.gz -C .staging rtk
           .staging/rtk --version
-      - name: Run integration tests
-        run: python tests/run_tests.py integration
-      - name: Checkout pinned Hermes
+      - name: Checkout pinned Hermes v0.23.0
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           repository: NousResearch/hermes-agent
-          ref: a8a549ebb43a61b2b400b992e956b7304b8fe41a
+          ref: 2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19
           path: .staging/hermes
           persist-credentials: false
-      - name: Install pinned Hermes dependencies
+      - name: Build frozen Hermes environment through PM
+        env:
+          PYTHONPATH: ${{ github.workspace }}/.staging/hermes
         run: |
-          python -m pip install uv==0.12.5
-          uv sync --frozen --no-dev --project .staging/hermes --python 3.11
-      - name: Run real Hermes dispatch tests (no skips permitted)
+          mkdir -p "$HERMES_HOME" "$HERMES_RUNTIME_DIR"
+          python -m pm.build_env --source .staging/hermes \
+            --out .staging/hermes-venv14 --python "$(command -v python)" \
+            --cache .staging/pm-cache
+      - name: Build RTK container layer
+        run: |
+          docker build -f container/Containerfile \
+            --build-arg BASE_IMAGE=docker.io/library/node@sha256:18a6d90fd60542269850c80ca03b29b1d9b14d6b221ac7ee8e35b0d33ef904bd \
+            -t "$RTK_TEST_IMAGE" container/
+      - name: Run all suites (no skips permitted)
         env:
           HERMES_TREE: ${{ github.workspace }}/.staging/hermes
-          HERMES_HOME: ${{ runner.temp }}/rtk-dispatch-home
-        run: |
-          mkdir -p "$HERMES_HOME"
-          .staging/hermes/.venv/bin/python tests/run_tests.py dispatch
+        run: .staging/hermes-venv14/bin/python tests/run_tests.py all

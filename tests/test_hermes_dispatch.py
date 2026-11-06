@@ -83,10 +83,7 @@ class HermesDispatchTest(unittest.TestCase):
         self._base = Path(self._tmp.name)
 
     def tearDown(self):
-        try:
-            self.P.unload_plugins()
-        except Exception:
-            pass
+        self.P._reset_plugin_managers_for_tests()
         self._tmp.cleanup()
 
     def _dispatch(self, home, tool_name, args):
