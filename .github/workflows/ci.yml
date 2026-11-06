@@ -29,8 +29,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      HERMES_HOME: ${{ runner.temp }}/rtk-test-home
-      HERMES_RUNTIME_DIR: ${{ runner.temp }}/rtk-test-runtime
+      HERMES_HOME: ${{ github.workspace }}/.staging/ci-test-home
+      HERMES_RUNTIME_DIR: ${{ github.workspace }}/.staging/ci-runtime
       RTK_TEST_IMAGE: localhost/hermes-lab-rtk-test:1.1.0
       RTK_TELEMETRY_DISABLED: "1"
     steps:
