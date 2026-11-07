@@ -25,7 +25,7 @@ Sources:
 
 | Component | Version or value |
 | --- | --- |
-| Adapter | `0.1.0`, runtime code unchanged |
+| Adapter | `0.1.1`, runtime code unchanged |
 | RTK | `1.1.0` |
 | RTK commit | `753a3b0e939f2e4490fc24e3a1984010f40a103c` |
 | RTK asset | `rtk-x86_64-unknown-linux-musl.tar.gz` |
@@ -40,8 +40,9 @@ Sources:
 The archive checksum matches the release `checksums.txt`. The staged executable reports `rtk 1.1.0`.
 The container layer and CI use the same archive checksum. No binary is committed.
 
-The host installation reports Hermes `0.22.7`. These tests use the separate, pinned `0.23.0` source checkout and PM environment.
-The host installation and live profiles stay unchanged.
+The original automated run used a separate, pinned `0.23.0` source checkout and PM environment.
+At that time, the host installation reported Hermes `0.22.7`. That run did not change the host installation or live profiles.
+The later lab tests cover both host versions, as recorded below.
 
 ## Setup
 
@@ -150,10 +151,40 @@ The test runner returns non-zero for any skipped test. Missing prerequisites do 
 The adapter still accepts `{0, 3}` and treats `{1, 2}` as passthrough.
 A code of 3 does not always mean the command changed. The adapter compares stdout with the original command.
 
-## Remaining release gate and limits
+## Hermes-lab profile tests
 
-Tom's separate `hermes-lab` profile test follows this branch handoff. These automated tests do not replace that gate.
-A live multiplexed gateway is not part of this test run.
+Both lab tests passed with plugin revision `b620e4caf44e7ec8db1727561fe2a1fa71ab5d93`.
+The 0.1.1 release changes the manifest version and documentation, not the runtime hook or container layer.
+
+| Task | Hermes | Python | Docker container | Result |
+| --- | --- | --- | --- | --- |
+| `t_574c3813` | `0.22.7`, `b200f5bc60e3` | `3.11.16` | `hermes-240c75c5` | Pass |
+| `t_cb72b2d4` | `0.23.0`, `2bd378ed1b8d` | `3.11.16` | Fresh `hermes-24ab53bc` | Pass |
+
+Both runs used `localhost/hermes-lab-sandbox:rtk1.1.0`, built on `docker.io/nousresearch/hermes-sandbox:desktop`.
+The image ID was `sha256:4cc74bca54a8d5bc40057db0bc72c63f5f698f87f4903832318ad362ae4a7365`.
+The host rewrite binary and `/usr/local/bin/rtk` in the container both reported `rtk 1.1.0`.
+
+Observed results in both runs:
+
+- Without Docker opt-in, `cat`, `git status` and `pwd` stayed unchanged.
+- With Docker opt-in, `cat /workspace/rtk-fixture.txt` became `rtk read /workspace/rtk-fixture.txt`. It returned `container evidence`, exit 0.
+- `ls -la /workspace` became `rtk ls -la /workspace`. It returned the fixture listing, exit 0.
+- `git status` became `rtk git status`. Outside a Git repository, it returned `Not a git repository`, exit 128, as expected.
+- `command -v rtk && rtk --version` returned `/usr/local/bin/rtk` and `rtk 1.1.0`, exit 0.
+- `rtk bypass printf %s raw-container-evidence` stayed unchanged and returned `raw-container-evidence`, exit 0.
+- No result contained `rtk: command not found`.
+
+Other profiles stayed unchanged. The 0.23.0 retest compared their configuration hashes before and after the run.
+The shared host RTK stayed at `0.46.0`. Only the lab used the staged host RTK 1.1.0 binary.
+The lab containers ran without a disk quota because the host storage driver did not support per-container disk limits.
+
+The original full CI run also passed all 59 tests, with zero skipped:
+https://github.com/petertaras/hermes-rtk-rewrite-with-docker-support/actions/runs/42148926407
+
+## Limits
+
+A live multiplexed gateway is not part of these test runs.
 
 - The container layer supports x86_64 Linux only.
 - A profile must opt in only after its target contains a compatible RTK executable.

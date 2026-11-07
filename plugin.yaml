@@ -1,5 +1,5 @@
 name: rtk-rewrite-docker
-version: "0.1.0"
+version: "0.1.1"
 description: Rewrite Hermes terminal commands through RTK, with Docker and remote backend support.
 author: RTK Contributors
 license: Apache-2.0

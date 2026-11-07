@@ -4,12 +4,22 @@ A plugin for Hermes Agent. It rewrites `terminal` tool commands with [RTK](https
 
 The plugin is a thin bridge. The RTK program does all the rewrite work (`rtk rewrite`). The plugin calls `rtk rewrite` and gives the result to Hermes. It does not copy any rewrite logic.
 
-This version adds support for Docker and remote terminal backends. Without this support, a Docker agent can fail with `rtk: command not found`. The next section explains the problem.
+This plugin supports Docker and remote terminal backends. Without this support, a Docker agent can fail with `rtk: command not found`. The next section explains the problem.
 
-- **Plugin version:** 0.1.0 (RTK has its own version number)
+- **Plugin version:** 0.1.1 (RTK has its own version number)
+- **Supported:** Hermes >=0.21, RTK 1.1.0
 - **RTK version:** v1.1.0 (tag `v1.1.0`, commit `753a3b0e939f2e4490fc24e3a1984010f40a103c`)
-- **Tested Hermes commit:** `2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19` (Hermes 0.23.0)
 - **License:** Apache-2.0 (see `LICENSE` and `NOTICE`)
+
+### Tested
+
+| Hermes | RTK | Environment | Result | Evidence |
+| --- | --- | --- | --- | --- |
+| 0.22.7 (`b200f5bc60e3`) | 1.1.0 | `hermes-lab`, Docker | Pass | [Lab results](docs/EVIDENCE.md#hermes-lab-profile-tests), task `t_574c3813` |
+| 0.23.0 (`2bd378ed1b8d`) | 1.1.0 | `hermes-lab`, fresh Docker container | Pass | [Lab results](docs/EVIDENCE.md#hermes-lab-profile-tests), task `t_cb72b2d4` |
+| 0.23.0 (`2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19`) | 1.1.0 | CI, Python 3.14, full test suite | 59 passed, zero skipped | [Verified CI run](https://github.com/petertaras/hermes-rtk-rewrite-with-docker-support/actions/runs/42148926407) |
+
+The supported range is not a test matrix. The table lists the versions tested for this release.
 
 ---
 
@@ -102,7 +112,11 @@ To update, copy the two files again. If needed, enable the plugin again.
 
 ### RTK on the Hermes host
 
-The plugin needs the `rtk` program in `PATH` on the Hermes host. The plugin does not download or include a binary.
+Install RTK 1.1.0 on the Hermes host before you enable rewrites. The plugin does not download or include a binary.
+The verified archive and checksum are in [docs/EVIDENCE.md](docs/EVIDENCE.md#pins).
+
+The host needs RTK for `rtk rewrite`. An opted-in Docker container also needs RTK 1.1.0 in its own `PATH`.
+A host install alone does not add RTK to the container.
 
 To use a specific program for the rewrite on the host, set `RTK_BIN` to its absolute path. This setting does not change how the rewritten command finds `rtk` on the backend.
 
@@ -128,7 +142,18 @@ To use a specific program for the rewrite on the host, set `RTK_BIN` to its abso
 6. Ask the agent to run `git status` in a Git repository. RTK output is shorter than the normal Git output.
 7. Ask the agent to run `command -v rtk`. Make sure that it shows the path of the program in the container.
 
-If the image has no `rtk`, do not opt in. Then the plugin behaves as it does for a local backend.
+If the image has no `rtk`, do not opt in. Docker commands then stay unchanged. The local backend keeps its existing policy.
+
+### Upgrade to 0.1.1
+
+1. Install RTK 1.1.0 on the host, or point `RTK_BIN` to the verified 1.1.0 executable.
+2. For Docker profiles, rebuild the existing base image with `container/Containerfile`.
+3. Install the plugin with the pinned commit command in "Install from GitHub".
+4. Keep the existing backend settings. Opt in to Docker only after the new image contains RTK 1.1.0.
+5. Replace the old profile container and start a new session.
+6. Check `rtk --version` on the host and through the profile terminal. Both must report `rtk 1.1.0`.
+
+The plugin update does not update host binaries, rebuild images, or replace running containers.
 
 ### Settings
 
@@ -255,7 +280,7 @@ The upstream authors keep their credit (see `NOTICE`). This plugin adds the back
 - **Dispatch tests** use the real Hermes plugin code. Each profile gets its terminal settings the same way the gateway sets them. These tests include the multiplexer case: the process environment says `local`, and the profile says `docker`. They also alternate between `local` and `docker` profiles and check that nothing leaks.
 - **Container tests.** The RTK v1.1.0 layer builds from a digest-pinned Node base. Real Hermes dispatch produces `rtk read`, and that command runs inside a network-disabled container. The tests also cover the default Docker gate, raw bypass, exit codes and the telemetry opt-out.
 - **Release tests.** All 59 tests pass with Hermes v0.23.0 and RTK v1.1.0. No tests are skipped.
-- **Profile test.** A separate `hermes-lab` test follows this branch handoff. Historical tests on older releases do not prove this release works.
+- **Profile tests.** `hermes-lab` passed on Hermes 0.22.7 and 0.23.0 with RTK 1.1.0 on the host and in Docker. Both runs proved the default Docker gate and opted-in rewrites. Neither run returned `rtk: command not found`. The 0.23.0 run used a fresh container. See the [lab evidence](docs/EVIDENCE.md#hermes-lab-profile-tests).
 
 ---
 
