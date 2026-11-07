@@ -5,7 +5,8 @@ Usage:
     python tests/run_tests.py            # all tests
     python tests/run_tests.py adapter    # only unit tests
     python tests/run_tests.py dispatch   # only Hermes dispatch tests
-    python tests/run_tests.py integration# only real-RTK integration tests
+    python tests/run_tests.py integration # real-RTK integration tests
+    python tests/run_tests.py container   # real Hermes dispatch + container image
 
 The dispatch tests import the real Hermes plugin machinery, so this runner adds
 the local Hermes tree to sys.path when it is present. Run with the Hermes venv
@@ -33,6 +34,7 @@ SUITES = {
     "adapter": ["test_adapter"],
     "dispatch": ["test_hermes_dispatch"],
     "integration": ["test_rtk_integration"],
+    "container": ["test_container"],
 }
 
 

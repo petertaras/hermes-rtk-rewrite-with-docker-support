@@ -1,6 +1,6 @@
 """Integration tests: real pinned RTK rewrite on a harmless temp git fixture.
 
-Uses the staged, checksum-verified RTK v0.50.0 binary (see docs/EVIDENCE.md).
+Uses the staged, checksum-verified RTK v1.1.0 binary (see docs/EVIDENCE.md).
 Creates a throwaway git repo as the fixture — never a user repo. Verifies the
 adapter produces a real rewrite, that passthrough stays untouched, and that the
 rewritten command is a meaningful, executable transform with sane exit semantics.
@@ -62,6 +62,14 @@ class RtkIntegrationTest(unittest.TestCase):
     def _rewrite(self, command):
         return self.m._pre_tool_call(tool_name="terminal", args={"command": command})
 
+    def _rtk_rewrite(self, command):
+        return subprocess.run(
+            [str(STAGED_RTK), "rewrite", command],
+            cwd=self.repo,
+            capture_output=True,
+            text=True,
+        )
+
     def test_cat_rewrites_to_rtk_read(self):
         result = self._rewrite("cat a.txt")
         self.assertIsNotNone(result)
@@ -75,6 +83,64 @@ class RtkIntegrationTest(unittest.TestCase):
 
     def test_passthrough_command_untouched(self):
         self.assertIsNone(self._rewrite("pwd"))
+
+    def test_staged_binary_reports_pinned_version(self):
+        result = subprocess.run(
+            [str(STAGED_RTK), "--version"], capture_output=True, text=True
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stdout.strip(), "rtk 1.1.0")
+
+    def test_rtk_rewrites_each_command_in_a_chain(self):
+        command = "cat a.txt && git status"
+        result = self._rtk_rewrite(command)
+        expected = "rtk read a.txt && rtk git status"
+        self.assertEqual(result.returncode, 3)
+        self.assertEqual(result.stdout.strip(), expected)
+
+        directive = self._rewrite(command)
+        self.assertIsNotNone(directive)
+        self.assertEqual(directive["args"]["command"], expected)
+
+    def test_pipeline_rewrites_only_safe_stages(self):
+        # A semantic consumer must see the original producer output, whereas a
+        # display-only cat permits rewriting the producer before the pipe.
+        cases = (
+            ("git status | grep branch", "git status | rtk grep branch"),
+            ("git status | cat", "rtk git status | cat"),
+        )
+        for command, expected in cases:
+            with self.subTest(command=command):
+                result = self._rtk_rewrite(command)
+                self.assertEqual(result.returncode, 3)
+                self.assertEqual(result.stdout.strip(), expected)
+
+    def test_redirections_are_preserved_or_left_unrewritten_when_unsafe(self):
+        redirected_stdout = self._rtk_rewrite("cat a.txt > copy.txt")
+        self.assertEqual(redirected_stdout.returncode, 1)
+        self.assertEqual(redirected_stdout.stdout, "")
+        self.assertIsNone(self._rewrite("cat a.txt > copy.txt"))
+        self.assertFalse((self.repo / "copy.txt").exists())
+
+        merged_stderr = self._rtk_rewrite("cat a.txt 2>&1")
+        self.assertEqual(merged_stderr.returncode, 3)
+        self.assertEqual(merged_stderr.stdout.strip(), "rtk read a.txt 2>&1")
+
+    def test_rtk_bypass_command_is_passthrough(self):
+        command = "rtk bypass cat a.txt"
+        rewrite = self._rtk_rewrite(command)
+        self.assertEqual(rewrite.returncode, 3)
+        self.assertEqual(rewrite.stdout.strip(), command)
+        self.assertIsNone(self._rewrite(command))
+
+        bypassed = subprocess.run(
+            [str(STAGED_RTK), "bypass", "cat", "a.txt"],
+            cwd=self.repo,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(bypassed.returncode, 0)
+        self.assertEqual(bypassed.stdout, "hello world\n")
 
     def test_rewritten_command_is_executable_and_meaningful(self):
         """The rewritten command must run and produce the same content as the
