@@ -74,10 +74,58 @@ The fix has three parts.
 
 ---
 
+## Install RTK first
+
+Complete this prerequisite before any plugin install method. The plugin does not download or include the RTK binary.
+Use RTK 1.1.0. The verified archive and checksum are in [docs/EVIDENCE.md](docs/EVIDENCE.md#pins).
+
+- **Local backend:** Install RTK on the Hermes host. The host needs it for both `rtk rewrite` and rewritten commands.
+- **Docker backend:** Install RTK on the Hermes host and inside the backend image. Use [`container/Containerfile`](container/Containerfile) as described in "The fix".
+- **Remote backend:** Install RTK on the Hermes host and in the remote environment before opt-in.
+
+Check the host installation:
+
+```bash
+rtk --version
+# Expected: rtk 1.1.0
+```
+
+For Docker, check the image too:
+
+```bash
+docker run --rm --entrypoint rtk <image> --version
+# Expected: rtk 1.1.0
+```
+
+For remote backends, run `rtk --version` in the remote environment too.
+A host install alone does not add RTK to Docker or remote backends.
+Do not opt in a backend until its RTK check passes.
+
+To select a different host executable, set `RTK_BIN` to its absolute path.
+This setting does not change how rewritten commands find `rtk` on the backend.
+
 ## Install
+
+### Install from the Hermes plugin catalog
+
+First, complete [Install RTK first](#install-rtk-first) for your backend.
+Then install the catalog entry in the profile that needs the plugin:
+
+```bash
+hermes -p <profile> plugins install rtk-rewrite-docker --enable
+```
+
+The [Hermes plugin catalog](https://github.com/NousResearch/hermes-agent/blob/main/plugin-catalog/rtk-rewrite-docker.yaml) pins a reviewed commit, not the latest `master` or release tag.
+The current entry installs version 0.1.1 at `61701dd6e14c2392f7cebcac68f46680f3a428ee`.
+For the next release, update the catalog entry's `version` and `sha` on upstream Hermes after review.
+A new release in this repository alone does not change what the catalog installs.
+
+The GitHub and file-copy methods below are alternatives.
+All methods need RTK on the Hermes host. Docker and remote backends also need RTK and explicit opt-in, as described above.
 
 ### Install from GitHub
 
+First, complete [Install RTK first](#install-rtk-first) for your backend.
 Install the plugin in the profile that uses the Docker backend. Pin the install to one commit:
 
 ```bash
@@ -99,6 +147,7 @@ Two things can stop an install. Neither one is a Docker problem.
 
 ### Install by copying files
 
+First, complete [Install RTK first](#install-rtk-first) for your backend.
 This method is for the `local` backend. The plugin is two files: `plugin.yaml` and `__init__.py`.
 
 ```bash
@@ -109,16 +158,6 @@ hermes plugins list
 ```
 
 To update, copy the two files again. If needed, enable the plugin again.
-
-### RTK on the Hermes host
-
-Install RTK 1.1.0 on the Hermes host before you enable rewrites. The plugin does not download or include a binary.
-The verified archive and checksum are in [docs/EVIDENCE.md](docs/EVIDENCE.md#pins).
-
-The host needs RTK for `rtk rewrite`. An opted-in Docker container also needs RTK 1.1.0 in its own `PATH`.
-A host install alone does not add RTK to the container.
-
-To use a specific program for the rewrite on the host, set `RTK_BIN` to its absolute path. This setting does not change how the rewritten command finds `rtk` on the backend.
 
 ---
 
@@ -215,6 +254,42 @@ These codes follow the RTK documentation. The file `docs/EVIDENCE.md` shows what
 RTK replaces commands with its own `rtk read`, `rtk grep`, and similar commands. These commands filter and shorten the output. This is the goal of RTK, because short output uses fewer tokens. But the output can differ from the normal output of the command.
 
 For the full native output, use `rtk bypass <command>`, for example `rtk bypass git diff`. The plugin does not change a command that starts with `rtk bypass`. This command skips the RTK filter. It does not skip Hermes output limits or tool approvals. The plugin does not detect missing information. It does not retry commands.
+
+### Failure output
+
+RTK 1.1.0 has a recall store for output recovery. The default mode is `sqlite`.
+For filters with failure recovery, RTK saves the full captured output and prints a hint with a content hash.
+Use the hash from that hint in the same backend and as the same user:
+
+```bash
+rtk recall <hash>
+rtk recall <hash> --full
+```
+
+The first command returns the missing output. The `--full` option returns the complete stored output.
+Recall reads stored output. It does not run the failed command again.
+Do not re-run a failed command to recover its output, especially a command that changes state.
+
+**Keep recall enabled.** `RTK_RECALL=0` or `rtk config recall disabled` prevents RTK from saving new recovery output.
+Filtered output from those runs cannot be recovered through recall.
+Check the mode in the backend where commands run:
+
+```bash
+rtk config recall
+# Default: recall mode: sqlite
+```
+
+Recall is not a guarantee for every failure. Some filters do not save failure output, and short failures can have no recall hint.
+Storage limits and retention also apply. The default SQLite limits are 10 MiB per entry, 200 entries and 30 days.
+For commands that require complete output from the start, use `rtk bypass <command>`.
+
+**Docker persistence:** The recall store belongs to the container, not the Hermes host that runs `rtk rewrite`.
+On Linux, its default location is `~/.local/share/rtk/recall.db` for the user that runs the command.
+Mount that user's `~/.local/share/rtk` directory on persistent storage before commands run.
+Without this mount, a container reset or replacement loses the store.
+If you override `XDG_DATA_HOME` or `RTK_RECALL_DB`, persist the actual store location instead.
+
+See the [RTK 1.1.0 recall documentation](https://github.com/rtk-ai/rtk/blob/753a3b0e939f2e4490fc24e3a1984010f40a103c/docs/guide/getting-started/configuration.md#recall-system).
 
 ### Companion skill
 
