@@ -111,7 +111,7 @@ This setting does not change how rewritten commands find `rtk` on the backend.
 
 ### Install from the Hermes plugin catalog
 
-The current catalog entry still needs RTK 1.1.0. Follow the [README for that version](https://github.com/petertaras/hermes-rtk-rewrite-with-docker-support/blob/61701dd6e14c2392f7cebcac68f46680f3a428ee/README.md#install-rtk-first).
+The current catalog entry still needs RTK 1.1.0. Follow the [RTK setup for that version](https://github.com/petertaras/hermes-rtk-rewrite-with-docker-support/blob/61701dd6e14c2392f7cebcac68f46680f3a428ee/README.md#rtk-on-the-hermes-host).
 Then install the catalog entry in the profile that needs the plugin:
 
 ```bash
