@@ -55,7 +55,7 @@ class ContainerTest(unittest.TestCase):
     def test_image_version_and_telemetry_opt_out(self):
         result = self._run('rtk --version; printf "telemetry=%s\\n" "$RTK_TELEMETRY_DISABLED"')
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.splitlines(), ["rtk 1.1.0", "telemetry=1"])
+        self.assertEqual(result.stdout.splitlines(), ["rtk 1.2.1", "telemetry=1"])
 
     def test_container_rewrite_exit_codes(self):
         result = self._run(
