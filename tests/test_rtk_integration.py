@@ -1,6 +1,6 @@
 """Integration tests: real pinned RTK rewrite on a harmless temp git fixture.
 
-Uses the staged, checksum-verified RTK v1.1.0 binary (see docs/EVIDENCE.md).
+Uses the staged, checksum-verified RTK v1.2.1 binary (see docs/EVIDENCE.md).
 Creates a throwaway git repo as the fixture — never a user repo. Verifies the
 adapter produces a real rewrite, that passthrough stays untouched, and that the
 rewritten command is a meaningful, executable transform with sane exit semantics.
@@ -81,6 +81,29 @@ class RtkIntegrationTest(unittest.TestCase):
         self.assertIsNotNone(result)
         self.assertEqual(result["args"]["command"], "rtk git status")
 
+    def test_cargo_rewrite_preserves_supported_prefixes(self):
+        for command in ("cargo +stable test", "cargo --locked check"):
+            with self.subTest(command=command):
+                self.assertEqual(self._rewrite(command), {
+                    "action": "modify", "args": {"command": f"rtk {command}"},
+                })
+
+    def test_unknown_cargo_prefix_is_passthrough(self):
+        self.assertIsNone(self._rewrite("cargo --unknown test"))
+
+    def test_explicit_rtk_fallback_after_global_flags_is_passthrough(self):
+        command = "rtk -v --skip-env echo fallback"
+        self.assertIsNone(self._rewrite(command))
+
+        result = subprocess.run(
+            [str(STAGED_RTK), *shlex.split(command)[1:]],
+            cwd=self.repo,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "fallback\n")
+
     def test_passthrough_command_untouched(self):
         self.assertIsNone(self._rewrite("pwd"))
 
@@ -89,7 +112,7 @@ class RtkIntegrationTest(unittest.TestCase):
             [str(STAGED_RTK), "--version"], capture_output=True, text=True
         )
         self.assertEqual(result.returncode, 0)
-        self.assertEqual(result.stdout.strip(), "rtk 1.1.0")
+        self.assertEqual(result.stdout.strip(), "rtk 1.2.1")
 
     def test_rtk_rewrites_each_command_in_a_chain(self):
         command = "cat a.txt && git status"
