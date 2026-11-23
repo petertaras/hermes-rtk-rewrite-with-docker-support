@@ -114,11 +114,13 @@ Profile writers must not be able to replace approved executables or write to the
 directories. Use only absolute, administrator-controlled directories in the host
 `PATH`.
 
-Set `RTK_BIN` in the active profile's `.env`. A single-profile process can also
-use `RTK_BIN` from its launch environment. A routed profile never inherits that
-value. If the override is relative or is not approved, the plugin leaves commands
-unchanged. If Hermes cannot read the allowlist, no override is approved. If
-`RTK_BIN` is unset or blank, the plugin looks for `rtk` on the host `PATH`.
+Set `RTK_BIN` in the active profile's `.env`. With Hermes' profile-aware resolver,
+a single-profile process can also use `RTK_BIN` from its launch environment. A
+routed profile never inherits that value. If the resolver is unavailable, the
+plugin ignores `RTK_BIN` and uses the host `PATH`. If the override is relative or
+is not approved, the plugin leaves commands unchanged. If Hermes cannot read
+the allowlist, no override is approved. If `RTK_BIN` is unset or blank, the
+plugin looks for `rtk` on the host `PATH`.
 This setting does not change how rewritten commands find `rtk` on the backend.
 
 ## Install

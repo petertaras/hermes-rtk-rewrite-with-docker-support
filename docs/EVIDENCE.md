@@ -27,7 +27,7 @@ Sources:
 
 | Component | Version or value |
 | --- | --- |
-| Adapter | `0.1.2`; reads the active profile's `RTK_BIN` and checks overrides against the host allowlist |
+| Adapter | `0.1.2`; reads the active profile's `RTK_BIN`, checks overrides against the host allowlist, and uses host `PATH` when the profile-aware resolver is unavailable |
 | RTK | `1.2.1` |
 | RTK commit | `d0f0399a5ff8cd1d81325a033f0b2d8864d665f6` |
 | RTK asset | `rtk-x86_64-unknown-linux-musl.tar.gz` |

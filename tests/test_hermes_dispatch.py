@@ -11,6 +11,7 @@ and produces a rewrite, and a local Hermes tree so ``hermes_cli`` is importable.
 Missing prerequisites are reported as skips, which the suite runner rejects.
 """
 
+import builtins
 import os
 import shutil
 import subprocess
@@ -170,6 +171,26 @@ class HermesDispatchTest(unittest.TestCase):
         launch_rtk = self._base / "launch-rtk"
         shutil.copy2(STAGED_RTK, launch_rtk)
         with self._host_approvals(launch_rtk), patch.object(subprocess, "run", wraps=subprocess.run) as run:
+            result = self._dispatch_routed(None, path=str(STAGED_RTK.parent), launch_override=str(launch_rtk))
+        run.assert_called_once()
+        self.assertEqual(run.call_args.args[0][0], str(STAGED_RTK))
+        self.assertEqual(result, (None, {"command": "rtk read a.txt"}))
+
+    def test_multiplexed_profile_without_env_resolver_uses_path(self):
+        launch_rtk = self._base / "launch-rtk"
+        import_module = builtins.__import__
+
+        def import_without_resolver(name, globals=None, locals=None, fromlist=(), level=0):
+            if name == "hermes_cli.config" and fromlist == ("get_env_value",):
+                raise ImportError("profile environment resolver unavailable")
+            return import_module(name, globals, locals, fromlist, level)
+
+        rewrite = subprocess.CompletedProcess([], 0, stdout="rtk read a.txt")
+        with (
+            self._host_approvals(launch_rtk),
+            patch.object(builtins, "__import__", import_without_resolver),
+            patch.object(subprocess, "run", return_value=rewrite) as run,
+        ):
             result = self._dispatch_routed(None, path=str(STAGED_RTK.parent), launch_override=str(launch_rtk))
         run.assert_called_once()
         self.assertEqual(run.call_args.args[0][0], str(STAGED_RTK))

@@ -123,7 +123,8 @@ def _rtk_bin():
     try:
         from hermes_cli.config import get_env_value
     except ImportError:
-        override = os.environ.get("RTK_BIN")
+        # Without the resolver, we cannot establish which profile owns the value.
+        override = None
     else:
         # Hermes keeps the process environment fallback for single-profile runs.
         # Do not bypass its isolation by reading the launch environment on a scope miss.
