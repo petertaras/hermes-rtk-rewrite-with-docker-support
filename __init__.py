@@ -117,16 +117,16 @@ def _backend_allowed(backend, allowed):
 
 
 def _rtk_bin():
-    """Return the RTK binary path: ``RTK_BIN`` env override, else PATH lookup.
-
-    ``RTK_BIN`` is honoured so tests and constrained deployments can point the
-    adapter at a specific verified binary without mutating PATH. It is not a
-    rewrite-logic feature; when unset the adapter behaves exactly as upstream.
-    """
-    override = (os.environ.get("RTK_BIN") or "").strip()
-    if override:
-        return override
-    return shutil.which("rtk")
+    """Return the active profile's ``RTK_BIN`` override, else look on PATH."""
+    try:
+        from hermes_cli.config import get_env_value
+    except ImportError:
+        override = os.environ.get("RTK_BIN")
+    else:
+        # Hermes keeps the process environment fallback for single-profile runs.
+        # Do not bypass its isolation by reading the launch environment on a scope miss.
+        override = get_env_value("RTK_BIN")
+    return (override or "").strip() or shutil.which("rtk")
 
 
 def _check_rtk():

@@ -16,7 +16,9 @@ import shutil
 import sys
 import tempfile
 import unittest
+from contextlib import ExitStack
 from pathlib import Path
+from unittest.mock import patch
 
 from _helpers import REPO_ROOT, STAGED_RTK
 
@@ -115,6 +117,44 @@ class HermesDispatchTest(unittest.TestCase):
         self.assertEqual(modified["cwd"], "/work")
         self.assertEqual(modified["timeout"], 60)
         self.assertIs(modified["background"], True)
+
+    def test_multiplexed_profile_rtk_bin_from_dotenv(self):
+        """A routed profile can select RTK without changing the process environment."""
+        from agent.secret_scope import (
+            build_profile_secret_scope, reset_multiplex_context, reset_secret_scope,
+            set_multiplex_context, set_secret_scope,
+        )
+        from hermes_constants import reset_hermes_home_override, set_hermes_home_override
+        from tools.terminal_scope import (
+            build_profile_terminal_scope, reset_terminal_scope, set_terminal_scope,
+        )
+
+        launch_home = _make_home(self._base, "launch")
+        profile_home = _make_home(self._base, "routed")
+        (profile_home / ".env").write_text(f"RTK_BIN={STAGED_RTK}\n")
+
+        # No process override or PATH fallback can supply the staged binary.
+        empty_path = self._base / "empty-path"
+        empty_path.mkdir()
+        with patch.dict(os.environ, {"HERMES_HOME": str(launch_home), "PATH": str(empty_path)}):
+            os.environ.pop("RTK_BIN", None)
+            with ExitStack() as stack:
+                token = set_multiplex_context(True)
+                stack.callback(reset_multiplex_context, token)
+                token = set_hermes_home_override(profile_home)
+                stack.callback(reset_hermes_home_override, token)
+                secrets = build_profile_secret_scope(profile_home)
+                self.assertEqual(secrets.get("RTK_BIN"), str(STAGED_RTK))
+                token = set_secret_scope(secrets, profile_home=str(profile_home))
+                stack.callback(reset_secret_scope, token)
+                token = set_terminal_scope(build_profile_terminal_scope(profile_home))
+                stack.callback(reset_terminal_scope, token)
+                self.P._ensure_plugins_discovered(force=True)
+                block, modified = self.P._dispatch_pre_tool_call_hooks(
+                    "terminal", {"command": "cat a.txt"}
+                )
+                self.assertIsNone(block)
+                self.assertEqual(modified, {"command": "rtk read a.txt"})
 
     def test_dispatch_passthrough_returns_no_modify(self):
         home = _make_home(self._base, "homeA")

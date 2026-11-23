@@ -7,3 +7,4 @@
 - RTK now runs fallback commands after supported global options such as `--verbose`.
 - `rtk gain` no longer shows the opt-out reminder next to the Pro line.
 - Docker and remote backends still require explicit opt-in.
+- The plugin now reads `RTK_BIN` from the active profile’s `.env` in multiplexed Hermes sessions.

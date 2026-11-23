@@ -105,6 +105,8 @@ A host install alone does not add RTK to Docker or remote backends.
 Do not opt in a backend until its RTK check passes.
 
 To select a different host executable, set `RTK_BIN` to its absolute path.
+In a multiplexed Hermes gateway, set it in the target profile’s `.env` file.
+A single-profile process can still use `RTK_BIN` from its environment.
 This setting does not change how rewritten commands find `rtk` on the backend.
 
 ## Install
