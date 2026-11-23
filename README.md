@@ -104,9 +104,21 @@ For remote backends, run `rtk --version` in the remote environment too.
 A host install alone does not add RTK to Docker or remote backends.
 Do not opt in a backend until its RTK check passes.
 
-To select a different host executable, set `RTK_BIN` to its absolute path.
-In a multiplexed Hermes gateway, set it in the target profile’s `.env` file.
-A single-profile process can still use `RTK_BIN` from its environment.
+To select a different host rewrite executable, set `RTK_BIN` to an absolute path
+listed in `/etc/rtk-rewrite-docker.allowed-binaries`. Only the host administrator
+may edit this file. Keep it readable by Hermes, with one absolute path per line.
+Blank lines and lines that start with `#` are ignored. Profile writers may select
+only approved paths. The host administrator must control the verified RTK binary,
+its path (including any symlinks and their targets), and the launch environment.
+Profile writers must not be able to replace approved executables or write to their
+directories. Use only absolute, administrator-controlled directories in the host
+`PATH`.
+
+Set `RTK_BIN` in the active profile's `.env`. A single-profile process can also
+use `RTK_BIN` from its launch environment. A routed profile never inherits that
+value. If the override is relative or is not approved, the plugin leaves commands
+unchanged. If Hermes cannot read the allowlist, no override is approved. If
+`RTK_BIN` is unset or blank, the plugin looks for `rtk` on the host `PATH`.
 This setting does not change how rewritten commands find `rtk` on the backend.
 
 ## Install
@@ -190,7 +202,7 @@ If the image has no `rtk`, do not opt in. Docker commands then stay unchanged. T
 
 ### Upgrade to 0.1.2
 
-1. Install RTK 1.2.1 on the host, or point `RTK_BIN` to the verified 1.2.1 executable.
+1. Install RTK 1.2.1 on the host, or point `RTK_BIN` to an administrator-approved verified 1.2.1 executable as described in "Install RTK first".
 2. For Docker profiles, rebuild the existing base image with `container/Containerfile`.
 3. Install the plugin with the pinned commit command in "Install from GitHub".
 4. Keep the existing backend settings. Opt in to Docker only after the new image contains RTK 1.2.1.

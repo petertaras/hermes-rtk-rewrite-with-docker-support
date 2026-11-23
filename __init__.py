@@ -14,6 +14,7 @@ import os
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 
 # Adapter version is independent of the RTK executable version (see plugin.yaml).
 ADAPTER_VERSION = "0.1.0"
@@ -25,6 +26,7 @@ ADAPTER_VERSION = "0.1.0"
 # ``plugins.entries.rtk-rewrite-docker.settings.backends`` once its image carries RTK.
 DEFAULT_ALLOWED_BACKENDS = frozenset({"local"})
 BACKENDS_SETTING = "backends"
+RTK_BIN_ALLOWLIST = Path("/etc/rtk-rewrite-docker.allowed-binaries")
 
 # RTK rewrite exit codes. ``{0, 3}`` mean "a rewrite is available on stdout";
 # ``{1, 2}`` mean "no rewrite" (passthrough). Kept as documented unless a pinned
@@ -117,7 +119,7 @@ def _backend_allowed(backend, allowed):
 
 
 def _rtk_bin():
-    """Return the active profile's ``RTK_BIN`` override, else look on PATH."""
+    """Return an approved ``RTK_BIN`` override, or look on PATH when unset."""
     try:
         from hermes_cli.config import get_env_value
     except ImportError:
@@ -126,7 +128,23 @@ def _rtk_bin():
         # Hermes keeps the process environment fallback for single-profile runs.
         # Do not bypass its isolation by reading the launch environment on a scope miss.
         override = get_env_value("RTK_BIN")
-    return (override or "").strip() or shutil.which("rtk")
+    override = (override or "").strip()
+    if not override:
+        return shutil.which("rtk")
+    if not os.path.isabs(override):
+        _warn("RTK_BIN must be an absolute host path")
+        return None
+
+    # A profile can select an entry, but cannot supply the trust policy.
+    try:
+        approved = RTK_BIN_ALLOWLIST.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeError):
+        _warn("RTK_BIN needs a readable host allowlist at /etc/rtk-rewrite-docker.allowed-binaries")
+        return None
+    if not any(override == entry.strip() for entry in approved):
+        _warn("RTK_BIN is not listed in the host allowlist")
+        return None
+    return override
 
 
 def _check_rtk():
@@ -137,7 +155,7 @@ def _check_rtk():
         _rtk_available = _rtk_bin() is not None
 
     if not _rtk_available and not _rtk_missing_warned:
-        _warn("rtk binary not found in PATH; Hermes hook not registered")
+        _warn("no host RTK binary selected; Hermes hook not registered")
         _rtk_missing_warned = True
 
     return _rtk_available

@@ -39,18 +39,10 @@ class RtkIntegrationTest(unittest.TestCase):
         # These tests exercise RTK's real rewrite, not backend detection (covered by
         # the unit and dispatch suites). Without a Hermes tree on the path the
         # backend is "unknown" and the adapter rightly skips, so pin it to local.
-        cls._backend_patch = mock.patch.object(cls.m, "_active_backend", return_value="local")
-        cls._backend_patch.start()
-        cls._old_rtk_bin = os.environ.get("RTK_BIN")
-        os.environ["RTK_BIN"] = str(STAGED_RTK)
-
-    @classmethod
-    def tearDownClass(cls):
-        cls._backend_patch.stop()
-        if cls._old_rtk_bin is None:
-            os.environ.pop("RTK_BIN", None)
-        else:
-            os.environ["RTK_BIN"] = cls._old_rtk_bin
+        cls.enterClassContext(mock.patch.object(cls.m, "_active_backend", return_value="local"))
+        cls.enterClassContext(mock.patch.dict(
+            os.environ, RTK_BIN="", PATH=f"{STAGED_RTK.parent}{os.pathsep}{os.environ['PATH']}"
+        ))
 
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()

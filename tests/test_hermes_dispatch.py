@@ -13,6 +13,7 @@ Missing prerequisites are reported as skips, which the suite runner rejects.
 
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -52,11 +53,10 @@ class HermesDispatchTest(unittest.TestCase):
     def setUpClass(cls):
         if not STAGED_RTK.is_file():
             raise unittest.SkipTest("staged RTK binary not present")
-        cls._old_home = os.environ.get("HERMES_HOME")
-        cls._old_rtk_bin = os.environ.get("RTK_BIN")
-        cls.addClassCleanup(cls._restore_env)
-        # Point the plugin at the verified binary deterministically.
-        os.environ["RTK_BIN"] = str(STAGED_RTK)
+        # Ordinary dispatch tests use the host PATH fallback.
+        cls.enterClassContext(patch.dict(
+            os.environ, RTK_BIN="", PATH=f"{STAGED_RTK.parent}{os.pathsep}{os.environ['PATH']}"
+        ))
         # Ensure hermes_cli is importable. The runner adds the Hermes tree to
         # sys.path; also try the conventional ~/.hermes/hermes-agent directly.
         hermes_tree = os.environ.get("HERMES_TREE") or str(Path.home() / ".hermes" / "hermes-agent")
@@ -66,17 +66,6 @@ class HermesDispatchTest(unittest.TestCase):
             import hermes_cli  # noqa: F401
         except Exception as exc:  # pragma: no cover - CI without a Hermes tree
             raise unittest.SkipTest(f"hermes_cli not importable: {exc}")
-
-    @classmethod
-    def _restore_env(cls):
-        if cls._old_home is None:
-            os.environ.pop("HERMES_HOME", None)
-        else:
-            os.environ["HERMES_HOME"] = cls._old_home
-        if cls._old_rtk_bin is None:
-            os.environ.pop("RTK_BIN", None)
-        else:
-            os.environ["RTK_BIN"] = cls._old_rtk_bin
 
     def setUp(self):
         from hermes_cli import plugins as P
@@ -118,8 +107,7 @@ class HermesDispatchTest(unittest.TestCase):
         self.assertEqual(modified["timeout"], 60)
         self.assertIs(modified["background"], True)
 
-    def test_multiplexed_profile_rtk_bin_from_dotenv(self):
-        """A routed profile can select RTK without changing the process environment."""
+    def _dispatch_routed(self, override, *, path, launch_override):
         from agent.secret_scope import (
             build_profile_secret_scope, reset_multiplex_context, reset_secret_scope,
             set_multiplex_context, set_secret_scope,
@@ -131,30 +119,61 @@ class HermesDispatchTest(unittest.TestCase):
 
         launch_home = _make_home(self._base, "launch")
         profile_home = _make_home(self._base, "routed")
-        (profile_home / ".env").write_text(f"RTK_BIN={STAGED_RTK}\n")
-
-        # No process override or PATH fallback can supply the staged binary.
-        empty_path = self._base / "empty-path"
-        empty_path.mkdir()
-        with patch.dict(os.environ, {"HERMES_HOME": str(launch_home), "PATH": str(empty_path)}):
-            os.environ.pop("RTK_BIN", None)
+        if override is not None:
+            (profile_home / ".env").write_text(f"RTK_BIN={override}\n")
+        with patch.dict(os.environ, HERMES_HOME=str(launch_home), PATH=path, RTK_BIN=launch_override):
             with ExitStack() as stack:
                 token = set_multiplex_context(True)
                 stack.callback(reset_multiplex_context, token)
                 token = set_hermes_home_override(profile_home)
                 stack.callback(reset_hermes_home_override, token)
                 secrets = build_profile_secret_scope(profile_home)
-                self.assertEqual(secrets.get("RTK_BIN"), str(STAGED_RTK))
+                self.assertEqual(secrets.get("RTK_BIN"), override)
                 token = set_secret_scope(secrets, profile_home=str(profile_home))
                 stack.callback(reset_secret_scope, token)
                 token = set_terminal_scope(build_profile_terminal_scope(profile_home))
                 stack.callback(reset_terminal_scope, token)
                 self.P._ensure_plugins_discovered(force=True)
-                block, modified = self.P._dispatch_pre_tool_call_hooks(
+                return self.P._dispatch_pre_tool_call_hooks(
                     "terminal", {"command": "cat a.txt"}
                 )
-                self.assertIsNone(block)
-                self.assertEqual(modified, {"command": "rtk read a.txt"})
+
+    def _host_approvals(self, *paths):
+        """Supply approval data without modifying the host's /etc."""
+        read_text = Path.read_text
+
+        def read(path, *args, **kwargs):
+            if path == Path("/etc/rtk-rewrite-docker.allowed-binaries"):
+                return "# Host-approved RTK executables\n\n" + "\n".join(map(str, paths))
+            return read_text(path, *args, **kwargs)
+
+        return patch.object(Path, "read_text", read)
+
+    def test_multiplexed_profile_uses_approved_absolute_override(self):
+        with self._host_approvals(STAGED_RTK):
+            result = self._dispatch_routed(str(STAGED_RTK), path=str(self._base), launch_override="")
+        self.assertEqual(result, (None, {"command": "rtk read a.txt"}))
+
+    def test_multiplexed_profile_rejects_relative_override_without_running_it(self):
+        with self._host_approvals(STAGED_RTK), patch.object(subprocess, "run") as run:
+            result = self._dispatch_routed("./rtk", path=str(STAGED_RTK.parent), launch_override="")
+        run.assert_not_called()
+        self.assertEqual(result, (None, None))
+
+    def test_multiplexed_profile_rejects_unapproved_absolute_override(self):
+        with self._host_approvals(), patch.object(subprocess, "run") as run:
+            result = self._dispatch_routed(str(STAGED_RTK), path=str(STAGED_RTK.parent), launch_override="")
+        run.assert_not_called()
+        self.assertEqual(result, (None, None))
+
+    def test_multiplexed_profile_without_override_uses_path_not_launch_override(self):
+        launch_rtk = self._base / "launch-rtk"
+        shutil.copy2(STAGED_RTK, launch_rtk)
+        with self._host_approvals(launch_rtk), patch.object(subprocess, "run", wraps=subprocess.run) as run:
+            result = self._dispatch_routed(None, path=str(STAGED_RTK.parent), launch_override=str(launch_rtk))
+        run.assert_called_once()
+        self.assertEqual(run.call_args.args[0][0], str(STAGED_RTK))
+        self.assertEqual(result, (None, {"command": "rtk read a.txt"}))
 
     def test_dispatch_passthrough_returns_no_modify(self):
         home = _make_home(self._base, "homeA")

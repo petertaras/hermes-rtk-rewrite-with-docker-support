@@ -39,7 +39,8 @@ class ContainerTest(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as directory:
             home = _make_docker_home(Path(directory), "docker", opt_in=opt_in)
-            with mock.patch.dict(os.environ, HERMES_HOME=str(home), RTK_BIN=str(STAGED_RTK)):
+            path = f"{STAGED_RTK.parent}{os.pathsep}{os.environ['PATH']}"
+            with mock.patch.dict(os.environ, HERMES_HOME=str(home), RTK_BIN="", PATH=path):
                 plugins._ensure_plugins_discovered(force=True)
                 token = set_terminal_scope(build_profile_terminal_scope(home))
                 try:

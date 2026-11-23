@@ -7,4 +7,4 @@
 - RTK now runs fallback commands after supported global options such as `--verbose`.
 - `rtk gain` no longer shows the opt-out reminder next to the Pro line.
 - Docker and remote backends still require explicit opt-in.
-- The plugin now reads `RTK_BIN` from the active profile’s `.env` in multiplexed Hermes sessions.
+- The plugin reads `RTK_BIN` from the active profile in multiplexed Hermes sessions. Overrides must be absolute paths listed in the host administrator's allowlist. Unset overrides still use the host `PATH`.

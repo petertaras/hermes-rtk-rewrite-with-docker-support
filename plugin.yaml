@@ -9,7 +9,7 @@ hooks:
 provides_hooks:
   - pre_tool_call
 # No Python dependencies: all rewrite logic lives in the external `rtk` binary,
-# which must be present on PATH (or pointed to via RTK_BIN) on the Hermes host.
+# which must be on the host PATH or selected via a host-approved RTK_BIN path.
 # The adapter fails open to the original command when the binary is missing.
 python_dependencies: []
 # Per-profile setting: plugins.entries.rtk-rewrite-docker.settings.backends
