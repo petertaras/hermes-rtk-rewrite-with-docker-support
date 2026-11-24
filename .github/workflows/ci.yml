@@ -25,13 +25,13 @@ jobs:
           env -u RTK_BIN PATH=/usr/bin:/bin "$PYTHON" tests/run_tests.py adapter
 
   integration:
-    name: All suites (RTK 1.1.0, Hermes 0.23.0, container)
+    name: All suites (RTK 1.2.1, Hermes 0.23.0, container)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
       HERMES_HOME: ${{ github.workspace }}/.staging/ci-test-home
       HERMES_RUNTIME_DIR: ${{ github.workspace }}/.staging/ci-runtime
-      RTK_TEST_IMAGE: localhost/hermes-lab-rtk-test:1.1.0
+      RTK_TEST_IMAGE: localhost/hermes-lab-rtk-test:1.2.1
       RTK_TELEMETRY_DISABLED: "1"
     steps:
       - name: Checkout
@@ -41,12 +41,12 @@ jobs:
         with:
           python-version: "3.14"
       # Only fixed release URLs, checksums and refs enter these shell commands.
-      - name: Stage verified RTK v1.1.0 binary
+      - name: Stage verified RTK v1.2.1 binary
         run: |
           mkdir -p .staging
           curl -fsSL -o .staging/rtk.tar.gz \
-            "https://github.com/rtk-ai/rtk/releases/download/v1.1.0/rtk-x86_64-unknown-linux-musl.tar.gz"
-          echo "9454ad1b9489daa57ab0a9f4ebe2faaf4dc82b8a0f26c9e5135151abd7c9378d  .staging/rtk.tar.gz" | sha256sum -c -
+            "https://github.com/rtk-ai/rtk/releases/download/v1.2.1/rtk-x86_64-unknown-linux-musl.tar.gz"
+          echo "75f64525711be935657a6b228d929c24bd9d1ab7d640ea374a8b913e5b5bac05  .staging/rtk.tar.gz" | sha256sum -c -
           tar -xzf .staging/rtk.tar.gz -C .staging rtk
           .staging/rtk --version
       - name: Checkout pinned Hermes v0.23.0

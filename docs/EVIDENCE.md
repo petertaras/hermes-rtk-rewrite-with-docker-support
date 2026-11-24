@@ -1,11 +1,43 @@
-# Evidence: RTK 1.1.0 and Hermes 0.23.0
+# RTK compatibility evidence
 
-## Assessment
+## Pins
+
+| Component | Version or value |
+| --- | --- |
+| Plugin | `0.1.2`, adapter code unchanged |
+| RTK | [`1.2.1`](https://github.com/rtk-ai/rtk/releases/tag/v1.2.1) |
+| RTK commit | `d0f0399a5ff8cd1d81325a033f0b2d8864d665f6` |
+| RTK asset | `rtk-x86_64-unknown-linux-musl.tar.gz` |
+| Asset SHA-256 | `75f64525711be935657a6b228d929c24bd9d1ab7d640ea374a8b913e5b5bac05` |
+| Hermes in CI | `0.23.0` (`2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19`) |
+
+The archive checksum matches the RTK release `checksums.txt`. The staged executable reports `rtk 1.2.1`. CI and the container layer use the same checksum.
+
+To stage the current binary for tests, run these commands from the repository root:
+
+```bash
+mkdir -p .staging
+curl -fsSL -o .staging/rtk.tar.gz \
+  https://github.com/rtk-ai/rtk/releases/download/v1.2.1/rtk-x86_64-unknown-linux-musl.tar.gz
+printf '%s  %s\n' \
+  75f64525711be935657a6b228d929c24bd9d1ab7d640ea374a8b913e5b5bac05 \
+  .staging/rtk.tar.gz | sha256sum -c -
+tar -xzf .staging/rtk.tar.gz -C .staging rtk
+.staging/rtk --version
+```
+
+See [Development](../README.md#development) for the current test commands.
+
+## Previous evidence: RTK 1.1.0 and Hermes 0.23.0
+
+The rest of this page records the RTK 1.1.0 test runs. To reproduce the old setup, use the `0.1.1` plugin source.
+
+### Assessment
 
 The Docker backend gate is still needed.
 
-- Latest stable RTK: `v1.1.0`, published 2026-10-25.
-- Latest stable Hermes: `v0.23.0`, published 2026-11-05.
+- RTK tested: `v1.1.0`, published 2026-10-25.
+- Hermes tested: `v0.23.0`, published 2026-11-05.
 - RTK still ships `hooks/hermes/rtk-rewrite/__init__.py` without a backend gate.
 - That hook runs `rtk rewrite` on the host and changes `args["command"]` for every terminal backend.
 - Hermes v0.23.0 has no built-in RTK integration. A search of its Python source found only a scanner test fixture.
@@ -21,7 +53,7 @@ Sources:
 - https://hermes-agent.nousresearch.com/docs/developer-guide/plugins
 - https://hermes-agent.nousresearch.com/docs/user-guide/features/hooks
 
-## Pins
+### RTK 1.1.0 pins
 
 | Component | Version or value |
 | --- | --- |
@@ -44,7 +76,7 @@ The original automated run used a separate, pinned `0.23.0` source checkout and 
 At that time, the host installation reported Hermes `0.22.7`. That run did not change the host installation or live profiles.
 The later lab tests cover both host versions, as recorded below.
 
-## Setup
+### RTK 1.1.0 setup
 
 All paths below are relative to this repository. `.staging/` is ignored by Git.
 Use a managed scratch directory for `TMPDIR`. Do not use a live Hermes home.
