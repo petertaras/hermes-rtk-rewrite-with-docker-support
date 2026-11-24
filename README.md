@@ -11,15 +11,14 @@ This plugin supports Docker and remote terminal backends. Without this support, 
 - **RTK version:** v1.2.1 (tag `v1.2.1`, commit `d0f0399a5ff8cd1d81325a033f0b2d8864d665f6`)
 - **License:** Apache-2.0 (see `LICENSE` and `NOTICE`)
 
-### Previous test results (RTK 1.1.0)
+### Tested
 
-| Hermes | RTK | Environment | Result | Evidence |
+| Environment | Plugin | RTK | Result | Evidence |
 | --- | --- | --- | --- | --- |
-| 0.22.7 (`b200f5bc60e3`) | 1.1.0 | `hermes-lab`, Docker | Pass | [Lab results](docs/EVIDENCE.md#hermes-lab-profile-tests), task `t_574c3813` |
-| 0.23.0 (`2bd378ed1b8d`) | 1.1.0 | `hermes-lab`, fresh Docker container | Pass | [Lab results](docs/EVIDENCE.md#hermes-lab-profile-tests), task `t_cb72b2d4` |
-| 0.23.0 (`2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19`) | 1.1.0 | CI, Python 3.14, full test suite | 59 passed, zero skipped | [Verified CI run](https://github.com/petertaras/hermes-rtk-rewrite-with-docker-support/actions/runs/42148926407) |
+| `hermes-lab`, Docker | 0.1.2 | 1.2.1 on the host and in the container | Plugin Doctor passed. Rewritten `git status` and `ls -la` exited 0. A rewritten `ls` on a missing path kept exit code 2. | Lab run `t_7e3a96e9` on `b0f8082` |
+| GitHub Actions, Hermes 0.23.0 (`2bd378ed1b8d`), Python 3.14 | 0.1.2 | 1.2.1 | Full suite: 62 passed, none skipped. | [CI run on `b0f8082`](https://github.com/petertaras/hermes-rtk-rewrite-with-docker-support/actions/runs/45166172872) |
 
-The supported range is not a test matrix. The table records tests with RTK 1.1.0. CI tests the current pin with Hermes 0.23.0.
+The supported range is not a test matrix. See [previous test results](docs/EVIDENCE.md#previous-evidence-rtk-110-and-hermes-0230) for earlier releases.
 
 ---
 
@@ -108,19 +107,16 @@ This setting does not change how rewritten commands find `rtk` on the backend.
 
 ### Install from the Hermes plugin catalog
 
-First, install RTK 1.1.0 for the catalog version below, on the host and in any opted-in backend.
-Then install the catalog entry in the profile that needs the plugin:
+The [Hermes plugin catalog](https://github.com/NousResearch/hermes-agent/blob/main/plugin-catalog/rtk-rewrite-docker.yaml) pins a reviewed commit, not the latest `master` or release tag. Use the RTK version documented for that commit on the host and in any opted-in backend.
+
+To install the catalog entry in the profile that needs the plugin:
 
 ```bash
 hermes -p <profile> plugins install rtk-rewrite-docker --enable
 ```
 
-The [Hermes plugin catalog](https://github.com/NousResearch/hermes-agent/blob/main/plugin-catalog/rtk-rewrite-docker.yaml) pins a reviewed commit, not the latest `master` or release tag.
-The current entry installs version 0.1.1 at `61701dd6e14c2392f7cebcac68f46680f3a428ee`.
-For the next release, update the catalog entry's `version` and `sha` on upstream Hermes after review.
-A new release in this repository alone does not change what the catalog installs.
+The catalog still pins [an earlier revision](https://github.com/petertaras/hermes-rtk-rewrite-with-docker-support/tree/61701dd6e14c2392f7cebcac68f46680f3a428ee). To install plugin 0.1.2 with RTK 1.2.1, use one of the methods below. A new release here does not change what the catalog installs.
 
-The GitHub and file-copy methods below are alternatives.
 All methods need RTK on the Hermes host. Docker and remote backends also need RTK and explicit opt-in, as described above.
 
 ### Install from GitHub
@@ -204,7 +200,7 @@ The plugin update does not update host binaries, rebuild images, or replace runn
 
 ## What RTK rewrites
 
-RTK rewrites each command in a chain. A chain uses `&&`, `||`, or `;`.
+RTK can rewrite individual commands in a chain. A chain uses `&&`, `||`, or `;`.
 
 | Command | Result |
 | --- | --- |
@@ -223,7 +219,7 @@ RTK handles shell safety as follows:
 - A command that RTK has no filter for, for example `echo hi`.
 - A command that starts with `rtk`. It stays as it is.
 
-The results come from `rtk rewrite` v1.1.0. A later RTK version can give different results.
+The results come from `rtk rewrite` v1.2.1. A later RTK version can give different results.
 
 ---
 
@@ -245,7 +241,7 @@ Hermes has its own fail-closed rule. A `pre_tool_call` callback that takes longe
 - `1` or `2`: RTK has no rewrite. The plugin returns `None`.
 - Any other code: the plugin logs a warning and returns `None`.
 
-These codes follow the RTK documentation. The file `docs/EVIDENCE.md` shows what RTK v1.1.0 returned in tests.
+These codes follow the RTK documentation. The [integration tests](tests/test_rtk_integration.py) check the exit codes with the pinned RTK binary.
 
 ---
 
@@ -257,8 +253,8 @@ For the full native output, use `rtk bypass <command>`, for example `rtk bypass 
 
 ### Failure output
 
-RTK 1.1.0 has a recall store for output recovery. The default mode is `sqlite`.
-For filters with failure recovery, RTK saves the full captured output and prints a hint with a content hash.
+RTK 1.2.1 has a recall store for output recovery. The default mode is `sqlite`.
+For filters with failure recovery, RTK saves captured output up to the per-entry limit and prints a hint with a content hash.
 Use the hash from that hint in the same backend and as the same user:
 
 ```bash
@@ -289,7 +285,7 @@ Mount that user's `~/.local/share/rtk` directory on persistent storage before co
 Without this mount, a container reset or replacement loses the store.
 If you override `XDG_DATA_HOME` or `RTK_RECALL_DB`, persist the actual store location instead.
 
-See the [RTK 1.1.0 recall documentation](https://github.com/rtk-ai/rtk/blob/753a3b0e939f2e4490fc24e3a1984010f40a103c/docs/guide/getting-started/configuration.md#recall-system).
+See the [RTK 1.2.1 recall documentation](https://github.com/rtk-ai/rtk/blob/d0f0399a5ff8cd1d81325a033f0b2d8864d665f6/docs/guide/getting-started/configuration.md#recall-system).
 
 ### Companion skill
 
@@ -332,7 +328,7 @@ To remove the plugin, disable it. Then delete the directory `plugins/rtk-rewrite
 
 ## How this plugin differs from the upstream RTK hook
 
-RTK v1.1.0 has its own Hermes hook: `hooks/hermes/rtk-rewrite/__init__.py`. Its `pre_tool_call` callback does this:
+RTK v1.2.1 has its own [Hermes hook](https://github.com/rtk-ai/rtk/blob/d0f0399a5ff8cd1d81325a033f0b2d8864d665f6/hooks/hermes/rtk-rewrite/__init__.py). Its `pre_tool_call` callback does this:
 
 ```python
 rewritten = result.stdout.strip()
@@ -345,7 +341,7 @@ In the tested Hermes version, this change does reach the tool call. Hermes gives
 
 This plugin returns a `modify` directive instead: `{"action": "modify", "args": {"command": rewritten}}`. Hermes merges the directive into the original arguments. The other fields stay the same (`cwd`, `workdir`, `timeout`, `background`). Both methods rewrote the test command. The explicit directive is a design choice. It does not repair a broken upstream hook.
 
-The upstream authors keep their credit (see `NOTICE`). This plugin adds the backend gate, the `RTK_BIN` setting, and a 2-second timeout.
+The upstream authors keep their credit (see `NOTICE`). This plugin adds the backend gate and the `RTK_BIN` setting. It uses a fixed 2-second timeout.
 
 ---
 
@@ -355,7 +351,7 @@ The upstream authors keep their credit (see `NOTICE`). This plugin adds the back
 - **Dispatch tests** use the real Hermes plugin code. Each profile gets its terminal settings the same way the gateway sets them. These tests include the multiplexer case: the process environment says `local`, and the profile says `docker`. They also alternate between `local` and `docker` profiles and check that nothing leaks.
 - **Container tests.** The RTK layer builds from a digest-pinned Node base. Real Hermes dispatch produces `rtk read`, and that command runs inside a network-disabled container. The tests also cover the default Docker gate, raw bypass, exit codes and the telemetry opt-out.
 - **RTK integration tests.** These use the pinned RTK executable. They cover rewrite exit codes, compound commands, Cargo prefixes and fallback commands after RTK global flags.
-- **Profile tests.** `hermes-lab` passed on Hermes 0.22.7 and 0.23.0 with RTK 1.1.0 on the host and in Docker. Both runs proved the default Docker gate and opted-in rewrites. Neither run returned `rtk: command not found`. The 0.23.0 run used a fresh container. See the [lab evidence](docs/EVIDENCE.md#hermes-lab-profile-tests).
+- **Profile test.** `hermes-lab` ran plugin 0.1.2 with RTK 1.2.1 on the host and in Docker. The chat turn exercised the opted-in rewrites and checked that a failed command kept its exit code. See [Tested](#tested).
 
 ---
 
@@ -396,4 +392,4 @@ Use an isolated `HERMES_HOME` and `HERMES_RUNTIME_DIR` for development. Never bu
 
 The test runner exits with an error when a test is skipped. A missing prerequisite counts as missing coverage. CI checks out the pinned Hermes commit, builds frozen dependencies through PM, builds the container layer and runs every suite.
 
-The file `docs/EVIDENCE.md` lists the verified archive and checksum for the current pin. It also records the previous RTK 1.1.0 test results.
+The file `docs/EVIDENCE.md` lists the verified archive and checksum for the current pin. It also records test results from earlier releases.
